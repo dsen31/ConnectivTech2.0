@@ -3,6 +3,7 @@
 import { useCallback, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Papa from "papaparse";
+import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -104,28 +105,73 @@ export function LeadImportWizard() {
   } | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
+  function applyParsedData(cols: string[], rows: Record<string, string>[]) {
+    setHeaders(cols);
+    setRawRows(rows.slice(0, MAX_ROWS));
+    const initialMapping: Record<string, string> = {};
+    for (const col of cols) {
+      initialMapping[col] = autoDetect(col);
+    }
+    setMapping(initialMapping);
+    setStep("mapping");
+  }
+
   function processFile(file: File) {
-    if (!file.name.endsWith(".csv")) {
-      toast.error("Please upload a .csv file");
+    const name = file.name.toLowerCase();
+
+    if (name.endsWith(".csv")) {
+      Papa.parse<Record<string, string>>(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          applyParsedData(results.meta.fields ?? [], results.data);
+        },
+        error: () => toast.error("Failed to parse CSV"),
+      });
       return;
     }
-    Papa.parse<Record<string, string>>(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const cols = results.meta.fields ?? [];
-        const rows = results.data.slice(0, MAX_ROWS);
-        setHeaders(cols);
-        setRawRows(rows);
-        const initialMapping: Record<string, string> = {};
-        for (const col of cols) {
-          initialMapping[col] = autoDetect(col);
+
+    if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target!.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: "array" });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rawRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+            header: 1,
+            defval: "",
+            raw: false,
+          });
+
+          if (rawRows.length < 2) {
+            toast.error("Spreadsheet appears to be empty");
+            return;
+          }
+
+          const cols = (rawRows[0] as unknown[])
+            .map((h) => String(h ?? "").trim())
+            .filter(Boolean);
+
+          const rows = rawRows.slice(1).map((row) => {
+            const obj: Record<string, string> = {};
+            cols.forEach((col, i) => {
+              obj[col] = String((row as unknown[])[i] ?? "").trim();
+            });
+            return obj;
+          }).filter((row) => Object.values(row).some((v) => v !== ""));
+
+          applyParsedData(cols, rows);
+        } catch {
+          toast.error("Failed to parse spreadsheet");
         }
-        setMapping(initialMapping);
-        setStep("mapping");
-      },
-      error: () => toast.error("Failed to parse CSV"),
-    });
+      };
+      reader.onerror = () => toast.error("Failed to read file");
+      reader.readAsArrayBuffer(file);
+      return;
+    }
+
+    toast.error("Please upload a .csv, .xlsx, or .xls file");
   }
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -233,21 +279,21 @@ export function LeadImportWizard() {
             >
               <Upload className="h-8 w-8 text-muted-foreground" />
               <div className="text-center">
-                <p className="text-sm font-medium">Drop your CSV here</p>
+                <p className="text-sm font-medium">Drop your file here</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  or click to browse — max {MAX_ROWS} rows
+                  CSV, Excel (.xlsx, .xls) — max {MAX_ROWS} rows
                 </p>
               </div>
               <input
                 type="file"
-                accept=".csv"
+                accept=".csv,.xlsx,.xls"
                 className="hidden"
                 onChange={handleFileInput}
               />
             </label>
             <p className="text-xs text-muted-foreground mt-4">
-              Required columns: <strong>Email</strong>, <strong>First Name</strong>,{" "}
-              <strong>Last Name</strong>. Column names are auto-detected.
+              Accepts CSV or Excel files. Required columns: <strong>Email</strong>,{" "}
+              <strong>First Name</strong>, <strong>Last Name</strong>. Column names are auto-detected.
             </p>
           </CardContent>
         </Card>
