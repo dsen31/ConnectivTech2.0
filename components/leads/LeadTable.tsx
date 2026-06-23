@@ -48,6 +48,7 @@ import {
 import { cn } from "@/lib/utils";
 import { deleteLead, clearAllLeads } from "@/app/actions/leads";
 import { TagsDialog } from "@/components/leads/TagsDialog";
+import { NewLeadDialog } from "@/components/leads/NewLeadDialog";
 import {
   type LeadWithTags,
   type Tag,
@@ -271,6 +272,7 @@ export function LeadTable({ leads, tags }: LeadTableProps) {
             <TagIcon className="h-4 w-4 mr-1" />
             Manage Tags
           </Button>
+          <NewLeadDialog />
           <Link
             href="/leads/import"
             className={cn(buttonVariants({ size: "sm" }), "no-underline")}

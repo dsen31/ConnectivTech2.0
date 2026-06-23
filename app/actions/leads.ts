@@ -40,6 +40,21 @@ export async function getLeadEnrollments(leadId: string): Promise<CampaignEnroll
   return (data ?? []) as unknown as CampaignEnrollment[];
 }
 
+export async function createLead(data: LeadInsert) {
+  const supabase = await createClient();
+  const { data: lead, error } = await supabase
+    .from("leads")
+    .insert(data)
+    .select()
+    .single();
+  if (error) {
+    if (error.code === "23505") throw new Error("A lead with this email already exists");
+    throw new Error(error.message);
+  }
+  revalidatePath("/leads");
+  return lead;
+}
+
 export async function updateLead(id: string, updates: LeadUpdate) {
   const supabase = await createClient();
   const { data, error } = await supabase

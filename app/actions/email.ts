@@ -104,6 +104,7 @@ export async function sendCampaignStep(campaignId: string): Promise<{
       await resend.emails.send({
         from: FROM,
         to: lead.email,
+        replyTo: ["dustin@actoradvisory.com"],
         subject,
         html,
         text: bodyText,
