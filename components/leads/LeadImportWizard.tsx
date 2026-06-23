@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Papa from "papaparse";
-import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -133,8 +132,9 @@ export function LeadImportWizard() {
 
     if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
+          const XLSX = await import("xlsx");
           const data = new Uint8Array(e.target!.result as ArrayBuffer);
           const workbook = XLSX.read(data, { type: "array" });
           const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -174,16 +174,17 @@ export function LeadImportWizard() {
     toast.error("Please upload a .csv, .xlsx, or .xls file");
   }
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragOver(false);
     const file = e.dataTransfer.files[0];
     if (file) processFile(file);
-  }, []);
+  }
 
   function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) processFile(file);
+    e.target.value = "";
   }
 
   function handleContinueToPreview() {
