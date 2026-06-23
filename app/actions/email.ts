@@ -22,7 +22,8 @@ function buildHtml(
   bodyText: string,
   bodyHtml: string | null,
   openToken: string,
-  trackBase: TrackingData
+  trackBase: TrackingData,
+  unsubUrl: string
 ): string {
   const escaped = bodyText
     .replace(/&/g, "&amp;")
@@ -30,8 +31,9 @@ function buildHtml(
     .replace(/>/g, "&gt;");
   let content = bodyHtml ?? `<div style="white-space:pre-line">${escaped}</div>`;
   content = wrapLinks(content, trackBase);
+  const footer = `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center"><a href="${unsubUrl}" style="color:#9ca3af;font-size:11px;text-decoration:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">Unsubscribe</a></div>`;
   const pixel = `<img src="${APP_URL}/api/track/open/${openToken}" width="1" height="1" style="display:none;border:0" alt="" />`;
-  return `<!DOCTYPE html><html><body><div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:0 auto;padding:20px 0">${content}${pixel}</div></body></html>`;
+  return `<!DOCTYPE html><html><body><div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:0 auto;padding:20px 0">${content}${footer}${pixel}</div></body></html>`;
 }
 
 export async function sendCampaignStep(campaignId: string): Promise<{
@@ -98,7 +100,9 @@ export async function sendCampaignStep(campaignId: string): Promise<{
 
     const trackBase: TrackingData = { cl: enrollment.id, s: step.id, l: lead.id };
     const openToken = encodeTrackingToken(trackBase);
-    const html = buildHtml(bodyText, bodyHtml, openToken, trackBase);
+    const unsubUrl = `${APP_URL}/api/unsubscribe/${encodeTrackingToken(trackBase)}`;
+    const html = buildHtml(bodyText, bodyHtml, openToken, trackBase, unsubUrl);
+    const text = `${bodyText}\n\n---\nTo unsubscribe: ${unsubUrl}`;
 
     try {
       await resend.emails.send({
@@ -107,7 +111,7 @@ export async function sendCampaignStep(campaignId: string): Promise<{
         replyTo: ["dustin@actoradvisory.com"],
         subject,
         html,
-        text: bodyText,
+        text,
       });
 
       const { count } = await supabase
