@@ -46,7 +46,7 @@ import {
   Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { deleteLead } from "@/app/actions/leads";
+import { deleteLead, clearAllLeads } from "@/app/actions/leads";
 import { TagsDialog } from "@/components/leads/TagsDialog";
 import {
   type LeadWithTags,
@@ -74,6 +74,7 @@ export function LeadTable({ leads, tags }: LeadTableProps) {
   const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<LeadWithTags | null>(null);
+  const [clearAllOpen, setClearAllOpen] = useState(false);
   const [tagsDialogOpen, setTagsDialogOpen] = useState(false);
 
   const industries = useMemo(
@@ -131,6 +132,20 @@ export function LeadTable({ leads, tags }: LeadTableProps) {
         toast.error("Failed to delete lead");
       } finally {
         setDeleteTarget(null);
+      }
+    });
+  }
+
+  function handleClearAll() {
+    startTransition(async () => {
+      try {
+        await clearAllLeads();
+        toast.success("All leads deleted");
+        router.refresh();
+      } catch {
+        toast.error("Failed to clear leads");
+      } finally {
+        setClearAllOpen(false);
       }
     });
   }
@@ -263,6 +278,17 @@ export function LeadTable({ leads, tags }: LeadTableProps) {
             <Upload className="h-4 w-4 mr-1" />
             Import CSV
           </Link>
+          {leads.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => setClearAllOpen(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Clear All
+            </Button>
+          )}
         </div>
       </div>
 
@@ -438,6 +464,30 @@ export function LeadTable({ leads, tags }: LeadTableProps) {
           </div>
         </div>
       )}
+
+      {/* Clear all confirmation */}
+      <AlertDialog open={clearAllOpen} onOpenChange={setClearAllOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete all leads?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete all{" "}
+              <strong>{leads.length} lead{leads.length !== 1 ? "s" : ""}</strong> and remove them
+              from all campaigns and the pipeline. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleClearAll}
+              disabled={isPending}
+            >
+              {isPending ? "Deleting…" : "Delete all leads"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete confirmation */}
       <AlertDialog

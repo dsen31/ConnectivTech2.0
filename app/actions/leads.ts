@@ -61,6 +61,15 @@ export async function deleteLead(id: string) {
   revalidatePath("/leads");
 }
 
+export async function clearAllLeads() {
+  const supabase = await createClient();
+  const { error } = await supabase.from("leads").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  if (error) throw new Error(error.message);
+  revalidatePath("/leads");
+  revalidatePath("/pipeline");
+  revalidatePath("/campaigns");
+}
+
 export async function bulkImportLeads(
   leads: LeadInsert[]
 ): Promise<{ imported: number; skipped: number; errors: string[] }> {

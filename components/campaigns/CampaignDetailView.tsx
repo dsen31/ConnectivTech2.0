@@ -28,6 +28,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { updateCampaign, deleteCampaign, unenrollLead } from "@/app/actions/campaigns";
+import { sendCampaignStep } from "@/app/actions/email";
+import { Send } from "lucide-react";
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -97,6 +99,9 @@ export function CampaignDetailView({
   const [statusPending, startStatus] = useTransition();
   const [deletePending, startDelete] = useTransition();
   const [unenrollPending, startUnenroll] = useTransition();
+  const [sendPending, startSend] = useTransition();
+
+  const activeCount = enrollments.filter((e) => e.status === "active").length;
 
   // Enrollment stats
   const stats = enrollments.reduce(
@@ -129,6 +134,21 @@ export function CampaignDetailView({
         router.push("/campaigns");
       } catch {
         toast.error("Failed to delete campaign");
+      }
+    });
+  }
+
+  function handleSend() {
+    startSend(async () => {
+      try {
+        const result = await sendCampaignStep(campaign.id);
+        if (result.errors > 0) {
+          toast.error(`${result.sent} sent, ${result.errors} failed`);
+        } else {
+          toast.success(`${result.sent} email${result.sent !== 1 ? "s" : ""} sent${result.skipped > 0 ? `, ${result.skipped} skipped` : ""}`);
+        }
+      } catch {
+        toast.error("Failed to send emails");
       }
     });
   }
@@ -294,6 +314,19 @@ export function CampaignDetailView({
                   <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
                 </div>
               ))}
+            </div>
+          )}
+
+          {enrollments.length > 0 && (
+            <div className="flex justify-end mb-3">
+              <Button
+                size="sm"
+                disabled={activeCount === 0 || sendPending || campaign.status !== "active"}
+                onClick={handleSend}
+              >
+                <Send className="h-3.5 w-3.5 mr-1.5" />
+                {sendPending ? "Sending…" : `Send Next Step${activeCount > 0 ? ` (${activeCount})` : ""}`}
+              </Button>
             </div>
           )}
 
