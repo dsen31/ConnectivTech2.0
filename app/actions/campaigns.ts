@@ -272,6 +272,14 @@ export async function bulkEnrollLeads(campaignId: string, leadIds: string[]) {
   return { enrolled: data?.length ?? 0, skipped: existingSet.size };
 }
 
+export async function bulkUnenrollLeads(campaignId: string, ids: string[]) {
+  if (ids.length === 0) return;
+  const supabase = await createClient();
+  const { error } = await supabase.from("campaign_leads").delete().in("id", ids);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/campaigns/${campaignId}`);
+}
+
 export async function unenrollLead(campaignLeadId: string) {
   const supabase = await createClient();
   const { data: entry } = await supabase

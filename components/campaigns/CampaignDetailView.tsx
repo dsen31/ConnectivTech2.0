@@ -27,8 +27,9 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { updateCampaign, deleteCampaign, unenrollLead } from "@/app/actions/campaigns";
+import { updateCampaign, deleteCampaign, unenrollLead, bulkUnenrollLeads } from "@/app/actions/campaigns";
 import { sendCampaignStep } from "@/app/actions/email";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Send } from "lucide-react";
 
 function fmtDate(iso: string) {
@@ -100,8 +101,14 @@ export function CampaignDetailView({
   const [deletePending, startDelete] = useTransition();
   const [unenrollPending, startUnenroll] = useTransition();
   const [sendPending, startSend] = useTransition();
+  const [bulkPending, startBulk] = useTransition();
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
 
   const activeCount = enrollments.filter((e) => e.status === "active").length;
+  const allSelected = selectedIds.size === enrollments.length && enrollments.length > 0;
+  const someSelected = selectedIds.size > 0 && !allSelected;
 
   // Enrollment stats
   const stats = enrollments.reduce(
@@ -153,10 +160,46 @@ export function CampaignDetailView({
     });
   }
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === enrollments.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(enrollments.map((e) => e.id)));
+    }
+  }
+
+  function handleBulkUnenroll() {
+    startBulk(async () => {
+      try {
+        const count = selectedIds.size;
+        await bulkUnenrollLeads(campaign.id, Array.from(selectedIds));
+        setSelectedIds(new Set());
+        setBulkConfirmOpen(false);
+        toast.success(`${count} lead${count !== 1 ? "s" : ""} unenrolled`);
+      } catch {
+        toast.error("Failed to unenroll leads");
+      }
+    });
+  }
+
   function handleUnenroll(enrollmentId: string, leadName: string) {
     startUnenroll(async () => {
       try {
         await unenrollLead(enrollmentId);
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(enrollmentId);
+          return next;
+        });
         toast.success(`${leadName} unenrolled`);
       } catch {
         toast.error("Failed to unenroll lead");
@@ -318,7 +361,18 @@ export function CampaignDetailView({
           )}
 
           {enrollments.length > 0 && (
-            <div className="flex justify-end mb-3">
+            <div className="flex items-center gap-2 justify-end mb-3">
+              {selectedIds.size > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => setBulkConfirmOpen(true)}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                  Remove Selected ({selectedIds.size})
+                </Button>
+              )}
               <Button
                 size="sm"
                 disabled={activeCount === 0 || sendPending || campaign.status !== "active"}
@@ -342,6 +396,13 @@ export function CampaignDetailView({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50">
+                    <th className="w-10 px-4 py-2.5">
+                      <Checkbox
+                        checked={allSelected}
+                        indeterminate={someSelected}
+                        onCheckedChange={toggleSelectAll}
+                      />
+                    </th>
                     <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground">
                       Lead
                     </th>
@@ -362,7 +423,7 @@ export function CampaignDetailView({
                 </thead>
                 <tbody
                   className={cn(
-                    unenrollPending && "opacity-60 pointer-events-none"
+                    (unenrollPending || bulkPending) && "opacity-60 pointer-events-none"
                   )}
                 >
                   {enrollments.map((enrollment) => {
@@ -375,6 +436,12 @@ export function CampaignDetailView({
                         key={enrollment.id}
                         className="border-b last:border-b-0 hover:bg-muted/30"
                       >
+                        <td className="px-4 py-3">
+                          <Checkbox
+                            checked={selectedIds.has(enrollment.id)}
+                            onCheckedChange={() => toggleSelect(enrollment.id)}
+                          />
+                        </td>
                         <td className="px-4 py-3">
                           {lead ? (
                             <Link
@@ -420,6 +487,30 @@ export function CampaignDetailView({
           )}
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={bulkConfirmOpen} onOpenChange={setBulkConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Remove {selectedIds.size} lead{selectedIds.size !== 1 ? "s" : ""}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will unenroll {selectedIds.size} lead{selectedIds.size !== 1 ? "s" : ""} from
+              this campaign. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkUnenroll}
+              disabled={bulkPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkPending ? "Removing…" : "Remove"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
