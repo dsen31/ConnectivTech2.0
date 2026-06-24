@@ -22,3 +22,22 @@ export async function updateEmailSignature(value: string) {
   if (error) throw new Error(error.message);
   revalidatePath("/settings");
 }
+
+export async function getDailySendLimit(): Promise<number> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("settings")
+    .select("value")
+    .eq("key", "daily_send_limit")
+    .single();
+  return parseInt(data?.value ?? "30", 10);
+}
+
+export async function updateDailySendLimit(value: number) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("settings")
+    .upsert({ key: "daily_send_limit", value: String(value) }, { onConflict: "key" });
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+}

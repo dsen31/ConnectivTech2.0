@@ -1,8 +1,11 @@
-import { getEmailSignature } from "@/app/actions/settings";
+import { getEmailSignature, getDailySendLimit } from "@/app/actions/settings";
 import { SignatureForm } from "@/components/settings/SignatureForm";
 
 export default async function SettingsPage() {
-  const signature = await getEmailSignature();
+  const [signature, dailyLimit] = await Promise.all([
+    getEmailSignature(),
+    getDailySendLimit(),
+  ]);
 
   return (
     <div className="space-y-6 max-w-xl">
@@ -14,7 +17,7 @@ export default async function SettingsPage() {
       </div>
 
       <div className="rounded-lg border p-5">
-        <SignatureForm initialValue={signature} />
+        <SignatureForm initialSignature={signature} initialDailyLimit={dailyLimit} />
       </div>
     </div>
   );

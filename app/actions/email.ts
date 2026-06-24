@@ -47,8 +47,30 @@ export async function sendCampaignStep(campaignId: string): Promise<{
   sent: number;
   skipped: number;
   errors: number;
+  limitReached: boolean;
 }> {
   const supabase = await createClient();
+
+  const { data: limitData } = await supabase
+    .from("settings")
+    .select("value")
+    .eq("key", "daily_send_limit")
+    .single();
+  const dailyLimit = parseInt(limitData?.value ?? "30", 10);
+
+  const todayUtc = new Date();
+  todayUtc.setUTCHours(0, 0, 0, 0);
+  const { count: sentToday } = await supabase
+    .from("email_events")
+    .select("id", { count: "exact", head: true })
+    .eq("event_type", "sent")
+    .gte("created_at", todayUtc.toISOString());
+
+  if ((sentToday ?? 0) >= dailyLimit) {
+    return { sent: 0, skipped: 0, errors: 0, limitReached: true };
+  }
+
+  let remaining = dailyLimit - (sentToday ?? 0);
 
   const { data: steps, error: stepsErr } = await supabase
     .from("campaign_steps")
@@ -66,9 +88,13 @@ export async function sendCampaignStep(campaignId: string): Promise<{
 
   const signature = await getEmailSignature();
 
-  const results = { sent: 0, skipped: 0, errors: 0 };
+  const results = { sent: 0, skipped: 0, errors: 0, limitReached: false };
 
   for (const enrollment of enrollments ?? []) {
+    if (remaining <= 0) {
+      results.limitReached = true;
+      break;
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const raw = enrollment as any;
     const lead = raw.leads as Lead | null;
@@ -157,6 +183,7 @@ export async function sendCampaignStep(campaignId: string): Promise<{
       }
 
       results.sent++;
+      remaining--;
     } catch {
       results.errors++;
     }

@@ -153,7 +153,11 @@ export function CampaignDetailView({
     startSend(async () => {
       try {
         const result = await sendCampaignStep(campaign.id);
-        if (result.errors > 0) {
+        if (result.limitReached && result.sent === 0) {
+          toast.warning("Daily send limit already reached — no emails sent");
+        } else if (result.limitReached) {
+          toast.warning(`${result.sent} sent — daily limit reached`);
+        } else if (result.errors > 0) {
           toast.error(`${result.sent} sent, ${result.errors} failed`);
         } else {
           toast.success(`${result.sent} email${result.sent !== 1 ? "s" : ""} sent${result.skipped > 0 ? `, ${result.skipped} skipped` : ""}`);
