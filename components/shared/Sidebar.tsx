@@ -27,7 +27,6 @@ export function Sidebar() {
 
   return (
     <aside className="w-56 shrink-0 border-r border-border bg-card flex flex-col h-full">
-      {/* Brand */}
       <div className="flex items-center gap-2 px-4 py-5 border-b border-border">
         <Zap className="h-5 w-5 text-primary" />
         <span className="font-semibold text-sm tracking-tight">
@@ -35,8 +34,7 @@ export function Sidebar() {
         </span>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-2 py-3 space-y-0.5">
+      <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
         {nav.map(({ href, label, icon: Icon }) => {
           const active =
             href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -58,7 +56,6 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Footer */}
       <div className="px-4 py-3 border-t border-border text-xs text-muted-foreground">
         Phase 1 — Engine
       </div>
