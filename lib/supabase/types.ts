@@ -222,6 +222,10 @@ type Rel = {
   referencedColumns: string[];
 };
 
+type SettingRow = { key: string; value: string; updated_at: string };
+type SettingInsert = { key: string; value: string; updated_at?: string };
+type SettingUpdate = { value?: string; updated_at?: string };
+
 type Tbl<R, I, U> = { Row: R; Insert: I; Update: U; Relationships: Rel[] };
 
 // ── Database shape ────────────────────────────────────────────────────────────
@@ -239,6 +243,7 @@ export type Database = {
       email_events: Tbl<EmailEventRow, EmailEventInsert, EmailEventUpdate>;
       pipeline_entries: Tbl<PipelineEntryRow, PipelineEntryInsert, PipelineEntryUpdate>;
       ab_tests: Tbl<AbTestRow, AbTestInsert, AbTestUpdate>;
+      settings: Tbl<SettingRow, SettingInsert, SettingUpdate>;
     };
     Views: Record<string, { Row: Record<string, unknown>; Relationships: Rel[] }>;
     Functions: Record<string, { Args: Record<string, unknown>; Returns: unknown }>;

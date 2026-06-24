@@ -6,6 +6,7 @@ import { resolveTokens } from "@/lib/tokens";
 import { encodeTrackingToken, type TrackingData } from "@/lib/email/tracking";
 import { revalidatePath } from "next/cache";
 import type { Lead, EmailTemplate } from "@/lib/supabase/types";
+import { getEmailSignature } from "@/app/actions/settings";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
@@ -23,7 +24,8 @@ function buildHtml(
   bodyHtml: string | null,
   openToken: string,
   trackBase: TrackingData,
-  unsubUrl: string
+  unsubUrl: string,
+  signature: string
 ): string {
   const escaped = bodyText
     .replace(/&/g, "&amp;")
@@ -31,9 +33,14 @@ function buildHtml(
     .replace(/>/g, "&gt;");
   let content = bodyHtml ?? `<div style="white-space:pre-line">${escaped}</div>`;
   content = wrapLinks(content, trackBase);
+  const escapedSig = signature
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  const sigBlock = `<div style="margin-top:24px;font-size:13px;color:#374151;white-space:pre-line">${escapedSig}</div>`;
   const footer = `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center"><a href="${unsubUrl}" style="color:#9ca3af;font-size:11px;text-decoration:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">Unsubscribe</a></div>`;
   const pixel = `<img src="${APP_URL}/api/track/open/${openToken}" width="1" height="1" style="display:none;border:0" alt="" />`;
-  return `<!DOCTYPE html><html><body><div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:0 auto;padding:20px 0">${content}${footer}${pixel}</div></body></html>`;
+  return `<!DOCTYPE html><html><body><div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:0 auto;padding:20px 0">${content}${sigBlock}${footer}${pixel}</div></body></html>`;
 }
 
 export async function sendCampaignStep(campaignId: string): Promise<{
@@ -56,6 +63,8 @@ export async function sendCampaignStep(campaignId: string): Promise<{
     .eq("campaign_id", campaignId)
     .eq("status", "active");
   if (enrollErr) throw new Error(enrollErr.message);
+
+  const signature = await getEmailSignature();
 
   const results = { sent: 0, skipped: 0, errors: 0 };
 
@@ -101,8 +110,8 @@ export async function sendCampaignStep(campaignId: string): Promise<{
     const trackBase: TrackingData = { cl: enrollment.id, s: step.id, l: lead.id };
     const openToken = encodeTrackingToken(trackBase);
     const unsubUrl = `${APP_URL}/api/unsubscribe/${encodeTrackingToken(trackBase)}`;
-    const html = buildHtml(bodyText, bodyHtml, openToken, trackBase, unsubUrl);
-    const text = `${bodyText}\n\n---\nTo unsubscribe: ${unsubUrl}`;
+    const html = buildHtml(bodyText, bodyHtml, openToken, trackBase, unsubUrl, signature);
+    const text = `${bodyText}\n\n${signature}\n\n---\nTo unsubscribe: ${unsubUrl}`;
 
     try {
       await resend.emails.send({
