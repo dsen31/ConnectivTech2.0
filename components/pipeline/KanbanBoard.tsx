@@ -129,9 +129,9 @@ function KanbanColumn({
   onDrop,
 }: KanbanColumnProps) {
   return (
-    <div className="flex flex-col w-64 shrink-0">
+    <div className="flex flex-col w-64 shrink-0 h-full">
       {/* Column header */}
-      <div className="flex items-center gap-2 px-1 mb-2">
+      <div className="flex items-center gap-2 px-1 mb-2 shrink-0">
         <span className={cn("h-2 w-2 rounded-full shrink-0", COLUMN_DOT_COLORS[stage])} />
         <span className="text-xs font-semibold text-foreground uppercase tracking-wide">
           {PIPELINE_STAGE_LABELS[stage]}
@@ -148,7 +148,7 @@ function KanbanColumn({
         onDragOver={onDragOver}
         onDrop={(e) => onDrop(e, stage)}
         className={cn(
-          "flex-1 min-h-[200px] rounded-lg border-2 border-dashed p-2 space-y-2 transition-colors duration-150",
+          "flex-1 min-h-0 overflow-y-auto rounded-lg border-2 border-dashed p-2 space-y-2 transition-colors duration-150",
           isOver
             ? COLUMN_DROP_HIGHLIGHT[stage]
             : "border-border/50 bg-muted/20"
@@ -269,12 +269,12 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
   const totalCards = PIPELINE_STAGES.reduce((sum, s) => sum + (columns[s]?.length ?? 0), 0);
 
   return (
-    <div className="space-y-1">
-      <p className="text-xs text-muted-foreground">
+    <div className="h-full flex flex-col gap-1">
+      <p className="text-xs text-muted-foreground shrink-0">
         {totalCards} lead{totalCards !== 1 ? "s" : ""} in pipeline
       </p>
-      <div className="overflow-x-auto pb-4">
-        <div className="flex gap-3" style={{ minWidth: `${PIPELINE_STAGES.length * 256 + (PIPELINE_STAGES.length - 1) * 12}px` }}>
+      <div className="flex-1 min-h-0 overflow-x-auto">
+        <div className="flex gap-3 h-full" style={{ minWidth: `${PIPELINE_STAGES.length * 256 + (PIPELINE_STAGES.length - 1) * 12}px` }}>
           {PIPELINE_STAGES.map((stage) => (
             <KanbanColumn
               key={stage}

@@ -105,9 +105,13 @@ export function CampaignDetailView({
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   const activeCount = enrollments.filter((e) => e.status === "active").length;
-  const allSelected = selectedIds.size === enrollments.length && enrollments.length > 0;
+  const visibleEnrollments = statusFilter
+    ? enrollments.filter((e) => e.status === statusFilter)
+    : enrollments;
+  const allSelected = selectedIds.size === visibleEnrollments.length && visibleEnrollments.length > 0;
   const someSelected = selectedIds.size > 0 && !allSelected;
 
   // Enrollment stats
@@ -160,6 +164,11 @@ export function CampaignDetailView({
     });
   }
 
+  function handleStatClick(key: string) {
+    setStatusFilter((prev) => (prev === key ? null : key));
+    setSelectedIds(new Set());
+  }
+
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -170,10 +179,10 @@ export function CampaignDetailView({
   }
 
   function toggleSelectAll() {
-    if (selectedIds.size === enrollments.length) {
+    if (selectedIds.size === visibleEnrollments.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(enrollments.map((e) => e.id)));
+      setSelectedIds(new Set(visibleEnrollments.map((e) => e.id)));
     }
   }
 
@@ -347,15 +356,20 @@ export function CampaignDetailView({
                 { label: "Paused", key: "paused", color: "text-yellow-600" },
                 { label: "Unsubscribed", key: "unsubscribed", color: "text-red-600" },
               ].map(({ label, key, color }) => (
-                <div
+                <button
                   key={key}
-                  className="rounded-lg border bg-card p-3 text-center"
+                  type="button"
+                  onClick={() => handleStatClick(key)}
+                  className={cn(
+                    "rounded-lg border bg-card p-3 text-center w-full transition-colors hover:bg-muted/50",
+                    statusFilter === key && "ring-2 ring-primary border-primary bg-primary/5"
+                  )}
                 >
                   <p className={cn("text-xl font-bold", color)}>
                     {stats[key] ?? 0}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -384,12 +398,38 @@ export function CampaignDetailView({
             </div>
           )}
 
+          {statusFilter && (
+            <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
+              <span>
+                Showing {visibleEnrollments.length} {statusFilter} lead{visibleEnrollments.length !== 1 ? "s" : ""}
+              </span>
+              <button
+                type="button"
+                onClick={() => { setStatusFilter(null); setSelectedIds(new Set()); }}
+                className="text-primary hover:underline"
+              >
+                Clear filter
+              </button>
+            </div>
+          )}
+
           {enrollments.length === 0 ? (
             <div className="rounded-lg border border-dashed p-10 text-center">
               <p className="text-sm text-muted-foreground">No leads enrolled yet.</p>
               <p className="text-xs text-muted-foreground mt-1">
                 Use the &ldquo;Enroll Leads&rdquo; button above to add leads to this campaign.
               </p>
+            </div>
+          ) : visibleEnrollments.length === 0 ? (
+            <div className="rounded-lg border border-dashed p-10 text-center">
+              <p className="text-sm text-muted-foreground capitalize">No {statusFilter} leads.</p>
+              <button
+                type="button"
+                onClick={() => setStatusFilter(null)}
+                className="text-xs text-primary hover:underline mt-1 block mx-auto"
+              >
+                Show all leads
+              </button>
             </div>
           ) : (
             <div className="rounded-lg border overflow-hidden">
@@ -426,7 +466,7 @@ export function CampaignDetailView({
                     (unenrollPending || bulkPending) && "opacity-60 pointer-events-none"
                   )}
                 >
-                  {enrollments.map((enrollment) => {
+                  {visibleEnrollments.map((enrollment) => {
                     const lead = enrollment.leads;
                     const name = lead
                       ? `${lead.first_name} ${lead.last_name}`

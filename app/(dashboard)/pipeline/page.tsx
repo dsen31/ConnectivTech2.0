@@ -18,8 +18,8 @@ export default async function PipelinePage() {
   const totalInPipeline = entries.length;
 
   return (
-    <div className="space-y-4">
-      <div>
+    <div className="h-full flex flex-col gap-4">
+      <div className="shrink-0">
         <h1 className="text-2xl font-semibold">Pipeline</h1>
         <p className="text-sm text-muted-foreground mt-1">
           {totalInPipeline > 0
@@ -28,7 +28,9 @@ export default async function PipelinePage() {
         </p>
       </div>
 
-      <KanbanBoard initialColumns={columns} />
+      <div className="flex-1 min-h-0">
+        <KanbanBoard initialColumns={columns} />
+      </div>
     </div>
   );
 }
