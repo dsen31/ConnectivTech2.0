@@ -2,9 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-
-export const DEFAULT_SIGNATURE =
-  "Dustin Senor\naCTOr Advisory\ndustin@actoradvisory.com\nactoradvisory.com";
+import { DEFAULT_SIGNATURE } from "@/lib/email/defaults";
 
 export async function getEmailSignature(): Promise<string> {
   const supabase = await createClient();
