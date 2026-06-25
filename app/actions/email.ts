@@ -169,16 +169,19 @@ export async function sendCampaignStep(campaignId: string): Promise<{
       }
 
       const nextStep = enrollment.current_step + 1;
-      const hasNext = (steps ?? []).some((s) => s.step_number === nextStep);
-      if (hasNext) {
+      const nextStepData = (steps ?? []).find((s) => s.step_number === nextStep);
+      if (nextStepData) {
+        const nextSendAt = new Date(
+          Date.now() + nextStepData.delay_days * 24 * 60 * 60 * 1000
+        ).toISOString();
         await supabase
           .from("campaign_leads")
-          .update({ current_step: nextStep })
+          .update({ current_step: nextStep, next_send_at: nextSendAt })
           .eq("id", enrollment.id);
       } else {
         await supabase
           .from("campaign_leads")
-          .update({ status: "completed" })
+          .update({ status: "completed", next_send_at: null })
           .eq("id", enrollment.id);
       }
 
