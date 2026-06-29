@@ -13,7 +13,7 @@ SELECT cron.schedule(
   '0 * * * *',
   $$
   SELECT net.http_post(
-    url     := 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/send-scheduled-emails',
+    url     := 'https://ebwtcbfupujwmgmrnzwp.supabase.co/functions/v1/send-scheduled-emails',
     headers := jsonb_build_object(
       'Content-Type',  'application/json',
       'Authorization', 'Bearer YOUR_SERVICE_ROLE_KEY'
