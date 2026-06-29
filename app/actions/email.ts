@@ -1,5 +1,6 @@
 "use server";
 
+import Anthropic from "@anthropic-ai/sdk";
 import { Resend } from "resend";
 import { createClient } from "@/lib/supabase/server";
 import { resolveTokens } from "@/lib/tokens";
@@ -7,6 +8,38 @@ import { encodeTrackingToken, type TrackingData } from "@/lib/email/tracking";
 import { revalidatePath } from "next/cache";
 import type { Lead, EmailTemplate } from "@/lib/supabase/types";
 import { getEmailSignature } from "@/app/actions/settings";
+
+const PERSONALIZATION_SYSTEM_PROMPT =
+  "You are helping personalize cold outreach emails for Dustin Senor at aCTOr Advisory, a technology advisory and AI training firm. Personalize the email for the specific lead without changing the core message or CTA. Keep it under 100 words. Sound human, not AI. No em dashes. Return only a JSON object with keys 'subject' and 'body'.";
+
+async function personalizeEmail(
+  subject: string,
+  bodyText: string,
+  lead: Lead
+): Promise<{ subject: string; body: string }> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return { subject, body: bodyText };
+
+  try {
+    const client = new Anthropic({ apiKey });
+    const userMessage = `Lead info:\n- Name: ${lead.first_name} ${lead.last_name}\n- Company: ${lead.company_name ?? "unknown"}\n- Job title: ${lead.job_title ?? "unknown"}\n- Industry: ${lead.industry ?? "unknown"}\n\nEmail to personalize:\nSubject: ${subject}\n\nBody:\n${bodyText}`;
+    const response = await client.messages.create({
+      model: "claude-haiku-4-5",
+      max_tokens: 1024,
+      system: PERSONALIZATION_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userMessage }],
+    });
+    const text = response.content[0].type === "text" ? response.content[0].text : "";
+    const parsed = JSON.parse(text) as { subject?: string; body?: string };
+    if (parsed.subject && parsed.body) {
+      return { subject: parsed.subject, body: parsed.body };
+    }
+  } catch {
+    // fall through to original
+  }
+
+  return { subject, body: bodyText };
+}
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
@@ -129,9 +162,13 @@ export async function sendCampaignStep(campaignId: string): Promise<{
     }
 
     const extras = { sender_name: "Dustin" };
-    const subject = resolveTokens(template.subject, lead, extras);
-    const bodyText = resolveTokens(template.body_text, lead, extras);
+    const resolvedSubject = resolveTokens(template.subject, lead, extras);
+    const resolvedBody = resolveTokens(template.body_text, lead, extras);
     const bodyHtml = template.body_html ? resolveTokens(template.body_html, lead, extras) : null;
+
+    const personalized = await personalizeEmail(resolvedSubject, resolvedBody, lead);
+    const subject = personalized.subject;
+    const bodyText = personalized.body;
 
     const trackBase: TrackingData = { cl: enrollment.id, s: step.id, l: lead.id };
     const openToken = encodeTrackingToken(trackBase);

@@ -3,11 +3,52 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
+const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const APP_URL = Deno.env.get("APP_URL") ?? "https://app.actoradvisory.com";
 const FROM = "Dustin <dustin@actoradvisory.com>";
 const REPLY_TO = "dustin@actoradvisory.com";
 const DEFAULT_SIGNATURE =
   "Dustin Senor\naCTOr Advisory\ndustin@actoradvisory.com\nactoradvisory.com";
+
+const PERSONALIZATION_SYSTEM_PROMPT =
+  "You are helping personalize cold outreach emails for Dustin Senor at aCTOr Advisory, a technology advisory and AI training firm. Personalize the email for the specific lead without changing the core message or CTA. Keep it under 100 words. Sound human, not AI. No em dashes. Return only a JSON object with keys 'subject' and 'body'.";
+
+async function personalizeEmail(
+  subject: string,
+  bodyText: string,
+  lead: Record<string, string | null>
+): Promise<{ subject: string; body: string }> {
+  if (!ANTHROPIC_API_KEY) return { subject, body: bodyText };
+
+  try {
+    const userMessage = `Lead info:\n- Name: ${lead.first_name ?? ""} ${lead.last_name ?? ""}\n- Company: ${lead.company_name ?? "unknown"}\n- Job title: ${lead.job_title ?? "unknown"}\n- Industry: ${lead.industry ?? "unknown"}\n\nEmail to personalize:\nSubject: ${subject}\n\nBody:\n${bodyText}`;
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5",
+        max_tokens: 1024,
+        system: PERSONALIZATION_SYSTEM_PROMPT,
+        messages: [{ role: "user", content: userMessage }],
+      }),
+    });
+    if (!res.ok) return { subject, body: bodyText };
+    const data = await res.json();
+    const text: string = data.content?.[0]?.text ?? "";
+    const parsed = JSON.parse(text) as { subject?: string; body?: string };
+    if (parsed.subject && parsed.body) {
+      return { subject: parsed.subject, body: parsed.body };
+    }
+  } catch {
+    // fall through to original
+  }
+
+  return { subject, body: bodyText };
+}
 
 // ── Helpers (mirrors lib/email/tracking.ts + lib/tokens.ts) ──────────────────
 
@@ -192,11 +233,15 @@ async function processScheduledEmails() {
       }
 
       const extras = { sender_name: "Dustin" };
-      const subject = resolveTokens(template.subject ?? "", lead, extras);
-      const bodyText = resolveTokens(template.body_text ?? "", lead, extras);
+      const resolvedSubject = resolveTokens(template.subject ?? "", lead, extras);
+      const resolvedBody = resolveTokens(template.body_text ?? "", lead, extras);
       const bodyHtml = template.body_html
         ? resolveTokens(template.body_html, lead, extras)
         : null;
+
+      const personalized = await personalizeEmail(resolvedSubject, resolvedBody, lead);
+      const subject = personalized.subject;
+      const bodyText = personalized.body;
 
       const trackBase = { cl: enrollment.id, s: step.id, l: lead.id as string };
       const openToken = encodeTrackingToken(trackBase);
