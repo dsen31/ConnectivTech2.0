@@ -12,6 +12,17 @@ import { getEmailSignature } from "@/app/actions/settings";
 const PERSONALIZATION_SYSTEM_PROMPT =
   "You are helping personalize cold outreach emails for Dustin Senor at aCTOr Advisory, a technology advisory and AI training firm. Personalize the email for the specific lead without changing the core message or CTA. Keep it under 100 words. Sound human, not AI. No em dashes. Do not include any closing, sign-off, or signature in the body — those are appended separately. Return only a JSON object with keys 'subject' and 'body'.";
 
+// Removes trailing sign-offs the AI sometimes appends (e.g. "Best,\nDustin")
+// despite being told not to, so the explicit signature block isn't duplicated.
+function stripTrailingSignoff(body: string): string {
+  const signoff = /^(best|regards|thanks|thank you|sincerely|cheers|warm regards|kind regards|dustin|dustin senor)[,.]?\s*$/i;
+  const lines = body.split("\n");
+  while (lines.length > 0 && (lines[lines.length - 1].trim() === "" || signoff.test(lines[lines.length - 1].trim()))) {
+    lines.pop();
+  }
+  return lines.join("\n").trimEnd();
+}
+
 async function personalizeEmail(
   subject: string,
   bodyText: string,
@@ -32,7 +43,7 @@ async function personalizeEmail(
     const text = response.content[0].type === "text" ? response.content[0].text : "";
     const parsed = JSON.parse(text) as { subject?: string; body?: string };
     if (parsed.subject && parsed.body) {
-      return { subject: parsed.subject, body: parsed.body };
+      return { subject: parsed.subject, body: stripTrailingSignoff(parsed.body) };
     }
   } catch {
     // fall through to original
