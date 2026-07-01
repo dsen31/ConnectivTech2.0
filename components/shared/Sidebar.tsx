@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -10,6 +10,7 @@ import {
   Kanban,
   Settings,
   Zap,
+  BarChart2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,7 @@ const nav = [
   { href: "/campaigns", label: "Campaigns", icon: Mail },
   { href: "/templates", label: "Templates", icon: FileText },
   { href: "/pipeline", label: "Pipeline", icon: Kanban },
+  { href: "/analytics", label: "Analytics", icon: BarChart2 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -57,7 +59,7 @@ export function Sidebar() {
       </nav>
 
       <div className="px-4 py-3 border-t border-border text-xs text-muted-foreground">
-        Phase 1 — Engine
+        Phase 1 â€” Engine
       </div>
     </aside>
   );
