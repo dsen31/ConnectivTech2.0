@@ -84,6 +84,21 @@ export const PIPELINE_STAGE_COLORS: Record<PipelineStage, string> = {
   closed_lost: "bg-red-50 text-red-700 border-red-200",
 };
 
+// ── A/B testing ───────────────────────────────────────────────────────────────
+
+export type AbVariantStats = {
+  sends: number;
+  opens: number;
+  replies: number;
+};
+
+export type StepAbStats = {
+  a: AbVariantStats;
+  b: AbVariantStats;
+};
+
+export type CampaignAbStats = Record<string, StepAbStats>;
+
 export type LeadWithTags = Lead & {
   lead_tags: Array<{ tags: Tag | null }>;
   campaign_leads?: Array<{ id: string }>;

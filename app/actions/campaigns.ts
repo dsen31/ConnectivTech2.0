@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { Database } from "@/lib/supabase/types";
+import type { CampaignAbStats, StepAbStats } from "@/types";
 
 type CampaignInsert = Database["public"]["Tables"]["campaigns"]["Insert"];
 type CampaignUpdate = Database["public"]["Tables"]["campaigns"]["Update"];
@@ -191,6 +192,60 @@ export async function moveCampaignStep(stepId: string, direction: "up" | "down")
   await supabase.from("campaign_steps").update({ step_number: targetNumber }).eq("id", stepId);
 
   revalidatePath(`/campaigns/${step.campaign_id}`);
+}
+
+// ── A/B stats ────────────────────────────────────────────────────────────────
+
+export async function getCampaignAbStats(campaignId: string): Promise<CampaignAbStats> {
+  const supabase = await createClient();
+
+  const { data: abSteps } = await supabase
+    .from("campaign_steps")
+    .select("id")
+    .eq("campaign_id", campaignId)
+    .not("subject_b", "is", null);
+
+  if (!abSteps?.length) return {};
+
+  const stepIds = abSteps.map((s) => s.id);
+
+  const { data: events } = await supabase
+    .from("email_events")
+    .select("campaign_lead_id, step_id, event_type, metadata")
+    .in("step_id", stepIds)
+    .in("event_type", ["sent", "opened", "replied"]);
+
+  const result: CampaignAbStats = {};
+
+  for (const step of abSteps) {
+    const stepEvents = (events ?? []).filter((e) => e.step_id === step.id);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sentA = stepEvents.filter((e) => e.event_type === "sent" && (e.metadata as any)?.variant === "A");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sentB = stepEvents.filter((e) => e.event_type === "sent" && (e.metadata as any)?.variant === "B");
+
+    const aLeadIds = new Set(sentA.map((e) => e.campaign_lead_id));
+    const bLeadIds = new Set(sentB.map((e) => e.campaign_lead_id));
+
+    const opens = stepEvents.filter((e) => e.event_type === "opened");
+    const replies = stepEvents.filter((e) => e.event_type === "replied");
+
+    const stats: StepAbStats = {
+      a: {
+        sends: sentA.length,
+        opens: opens.filter((e) => aLeadIds.has(e.campaign_lead_id)).length,
+        replies: replies.filter((e) => aLeadIds.has(e.campaign_lead_id)).length,
+      },
+      b: {
+        sends: sentB.length,
+        opens: opens.filter((e) => bLeadIds.has(e.campaign_lead_id)).length,
+        replies: replies.filter((e) => bLeadIds.has(e.campaign_lead_id)).length,
+      },
+    };
+    result[step.id] = stats;
+  }
+
+  return result;
 }
 
 // ── Enrollments ───────────────────────────────────────────────────────────────

@@ -121,6 +121,7 @@ type CampaignStepRow = {
   template_id: string;
   delay_days: number;
   send_condition: "always" | "not_replied" | "not_opened" | "opened";
+  subject_b: string | null;
   created_at: string;
 };
 type CampaignStepInsert = {
@@ -130,6 +131,7 @@ type CampaignStepInsert = {
   template_id: string;
   delay_days?: number;
   send_condition?: "always" | "not_replied" | "not_opened" | "opened";
+  subject_b?: string | null;
   created_at?: string;
 };
 type CampaignStepUpdate = Partial<CampaignStepInsert>;

@@ -46,6 +46,7 @@ import type {
   LeadWithTags,
   Tag,
   EmailTemplate,
+  CampaignAbStats,
 } from "@/types";
 import {
   USE_CASE_LABELS,
@@ -74,6 +75,7 @@ interface CampaignDetailViewProps {
   availableLeads: LeadWithTags[];
   allTags: Tag[];
   templates: EmailTemplate[];
+  abStats: CampaignAbStats;
 }
 
 function EnrollmentStatusBadge({ status }: { status: string }) {
@@ -95,6 +97,7 @@ export function CampaignDetailView({
   availableLeads,
   allTags,
   templates,
+  abStats,
 }: CampaignDetailViewProps) {
   const router = useRouter();
   const [statusPending, startStatus] = useTransition();
@@ -345,6 +348,7 @@ export function CampaignDetailView({
             steps={campaign.campaign_steps}
             templates={templates}
             campaignUseCase={campaign.use_case}
+            abStats={abStats}
           />
         </TabsContent>
 

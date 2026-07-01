@@ -121,6 +121,44 @@ export async function sendCampaignStep(campaignId: string): Promise<{
 
   const signature = await getEmailSignature();
 
+  // Precompute A/B winners for any steps that have subject_b set
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const stepsWithAb = (steps ?? []).filter((s) => (s as any).subject_b);
+  const abWinners = new Map<string, "A" | "B" | null>();
+
+  if (stepsWithAb.length > 0) {
+    const abStepIds = stepsWithAb.map((s) => s.id);
+    const [{ data: abSent }, { data: abOpened }] = await Promise.all([
+      supabase
+        .from("email_events")
+        .select("campaign_lead_id, step_id, metadata")
+        .in("step_id", abStepIds)
+        .eq("event_type", "sent"),
+      supabase
+        .from("email_events")
+        .select("campaign_lead_id, step_id")
+        .in("step_id", abStepIds)
+        .eq("event_type", "opened"),
+    ]);
+
+    for (const s of stepsWithAb) {
+      const sent = (abSent ?? []).filter((e) => e.step_id === s.id);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const aSent = sent.filter((e) => (e.metadata as any)?.variant === "A");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const bSent = sent.filter((e) => (e.metadata as any)?.variant === "B");
+
+      if (aSent.length < 20 || bSent.length < 20) { abWinners.set(s.id, null); continue; }
+
+      const openSet = new Set(
+        (abOpened ?? []).filter((e) => e.step_id === s.id).map((e) => e.campaign_lead_id)
+      );
+      const aRate = aSent.filter((e) => openSet.has(e.campaign_lead_id)).length / aSent.length;
+      const bRate = bSent.filter((e) => openSet.has(e.campaign_lead_id)).length / bSent.length;
+      abWinners.set(s.id, Math.abs(aRate - bRate) >= 0.10 ? (aRate > bRate ? "A" : "B") : null);
+    }
+  }
+
   const results = { sent: 0, skipped: 0, errors: 0, limitReached: false };
 
   for (const enrollment of enrollments ?? []) {
@@ -166,7 +204,21 @@ export async function sendCampaignStep(campaignId: string): Promise<{
     const resolvedBody = resolveTokens(template.body_text, lead, extras);
     const bodyHtml = template.body_html ? resolveTokens(template.body_html, lead, extras) : null;
 
-    const personalized = await personalizeEmail(resolvedSubject, resolvedBody, lead);
+    // A/B subject selection
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const stepSubjectB = (step as any).subject_b as string | null;
+    let abVariant: "A" | "B" | null = null;
+    let subjectForSend = resolvedSubject;
+
+    if (stepSubjectB) {
+      const winner = abWinners.get(step.id) ?? null;
+      abVariant = winner ?? (Math.random() < 0.5 ? "A" : "B");
+      if (abVariant === "B") {
+        subjectForSend = resolveTokens(stepSubjectB, lead, extras);
+      }
+    }
+
+    const personalized = await personalizeEmail(subjectForSend, resolvedBody, lead);
     const subject = personalized.subject;
     const bodyText = personalized.body;
 
@@ -197,6 +249,7 @@ export async function sendCampaignStep(campaignId: string): Promise<{
         lead_id: lead.id,
         step_id: step.id,
         event_type: "sent",
+        ...(abVariant ? { metadata: { variant: abVariant } } : {}),
       });
 
       if ((count ?? 0) === 0) {
