@@ -11,7 +11,7 @@ const DEFAULT_SIGNATURE =
   "Dustin Senor\naCTOr Advisory\ndustin@actoradvisory.com\nactoradvisory.com";
 
 const PERSONALIZATION_SYSTEM_PROMPT =
-  "You are helping personalize cold outreach emails for Dustin Senor at aCTOr Advisory, a technology advisory and AI training firm. Personalize the email for the specific lead without changing the core message or CTA. Keep it under 100 words. Sound human, not AI. No em dashes. Return only a JSON object with keys 'subject' and 'body'.";
+  "You are helping personalize cold outreach emails for Dustin Senor at aCTOr Advisory, a technology advisory and AI training firm. Personalize the email for the specific lead without changing the core message or CTA. Keep it under 100 words. Sound human, not AI. No em dashes. Do not include any closing, sign-off, or signature in the body — those are appended separately. Return only a JSON object with keys 'subject' and 'body'.";
 
 async function personalizeEmail(
   subject: string,
