@@ -126,9 +126,24 @@ async function sendViaResend(
   }
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function isWeekendEastern(): boolean {
+  const day = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+  }).format(new Date());
+  return day === "Sat" || day === "Sun";
+}
+
 // ── Main send logic ───────────────────────────────────────────────────────────
 
 async function processScheduledEmails() {
+  if (isWeekendEastern()) {
+    console.log("Weekend in US Eastern time — skipping scheduled sends");
+    return { sent: 0, skipped: 0, errors: 0, limitReached: false };
+  }
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   // Fetch settings in parallel

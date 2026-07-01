@@ -156,7 +156,9 @@ export function CampaignDetailView({
     startSend(async () => {
       try {
         const result = await sendCampaignStep(campaign.id);
-        if (result.limitReached && result.sent === 0) {
+        if (result.weekendBlocked) {
+          toast.warning("No emails sent on weekends — try again Monday");
+        } else if (result.limitReached && result.sent === 0) {
           toast.warning("Daily send limit already reached — no emails sent");
         } else if (result.limitReached) {
           toast.warning(`${result.sent} sent — daily limit reached`);

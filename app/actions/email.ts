@@ -81,7 +81,16 @@ export async function sendCampaignStep(campaignId: string): Promise<{
   skipped: number;
   errors: number;
   limitReached: boolean;
+  weekendBlocked: boolean;
 }> {
+  const dayName = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+  }).format(new Date());
+  if (dayName === "Sat" || dayName === "Sun") {
+    return { sent: 0, skipped: 0, errors: 0, limitReached: false, weekendBlocked: true };
+  }
+
   const supabase = await createClient();
 
   const { data: limitData } = await supabase
@@ -100,7 +109,7 @@ export async function sendCampaignStep(campaignId: string): Promise<{
     .gte("created_at", todayUtc.toISOString());
 
   if ((sentToday ?? 0) >= dailyLimit) {
-    return { sent: 0, skipped: 0, errors: 0, limitReached: true };
+    return { sent: 0, skipped: 0, errors: 0, limitReached: true, weekendBlocked: false };
   }
 
   let remaining = dailyLimit - (sentToday ?? 0);
@@ -159,7 +168,7 @@ export async function sendCampaignStep(campaignId: string): Promise<{
     }
   }
 
-  const results = { sent: 0, skipped: 0, errors: 0, limitReached: false };
+  const results = { sent: 0, skipped: 0, errors: 0, limitReached: false, weekendBlocked: false };
 
   for (const enrollment of enrollments ?? []) {
     if (remaining <= 0) {
