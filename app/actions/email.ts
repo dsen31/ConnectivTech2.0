@@ -80,7 +80,15 @@ function buildHtml(
   const escapedSig = signature
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(
+      /dustin@actoradvisory\.com/g,
+      '<a href="mailto:dustin@actoradvisory.com" style="color:#374151;text-decoration:none">dustin@actoradvisory.com</a>'
+    )
+    .replace(
+      /(?<!@)actoradvisory\.com/g,
+      '<a href="https://actoradvisory.com" style="color:#374151;text-decoration:none">actoradvisory.com</a>'
+    );
   const sigBlock = `<div style="margin-top:24px;font-size:13px;color:#374151;white-space:pre-line">${escapedSig}</div>`;
   const footer = `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center"><a href="${unsubUrl}" style="color:#9ca3af;font-size:11px;text-decoration:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">Unsubscribe</a></div>`;
   const pixel = `<img src="${APP_URL}/api/track/open/${openToken}" width="1" height="1" style="display:none;border:0" alt="" />`;
