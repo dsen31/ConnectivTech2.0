@@ -18,6 +18,7 @@ export type DailyData = {
   sent: number;
   opened: number;
   replied: number;
+  unsubscribed: number;
 };
 
 type EventRow = {
@@ -83,7 +84,7 @@ export async function getAnalyticsData(): Promise<{
     d.setDate(d.getDate() - i);
     const key = d.toISOString().slice(0, 10);
     const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const entry: DailyData = { date: key, label, sent: 0, opened: 0, replied: 0 };
+    const entry: DailyData = { date: key, label, sent: 0, opened: 0, replied: 0, unsubscribed: 0 };
     dailyData.push(entry);
     dayMap.set(key, entry);
   }
@@ -101,6 +102,7 @@ export async function getAnalyticsData(): Promise<{
     if (e.event_type === "sent") day.sent++;
     else if (e.event_type === "opened") day.opened++;
     else if (e.event_type === "replied") day.replied++;
+    else if (e.event_type === "unsubscribed") day.unsubscribed++;
   }
 
   // ── Overall totals ────────────────────────────────────────────────────────────

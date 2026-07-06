@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { DailyData } from "@/app/actions/analytics";
 
 export function AnalyticsCharts({ data }: { data: DailyData[] }) {
-  const hasData = data.some((d) => d.sent > 0 || d.opened > 0 || d.replied > 0);
+  const hasData = data.some((d) => d.sent > 0 || d.opened > 0 || d.replied > 0 || d.unsubscribed > 0);
 
   return (
     <Card>
@@ -41,6 +41,10 @@ export function AnalyticsCharts({ data }: { data: DailyData[] }) {
                 <linearGradient id="gReplied" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#22c55e" stopOpacity={0.18} />
                   <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="gUnsubscribed" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.18} />
+                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -100,6 +104,16 @@ export function AnalyticsCharts({ data }: { data: DailyData[] }) {
                 stroke="#22c55e"
                 strokeWidth={1.5}
                 fill="url(#gReplied)"
+                dot={false}
+                activeDot={{ r: 3, strokeWidth: 0 }}
+              />
+              <Area
+                type="monotone"
+                dataKey="unsubscribed"
+                name="Unsubscribed"
+                stroke="#ef4444"
+                strokeWidth={1.5}
+                fill="url(#gUnsubscribed)"
                 dot={false}
                 activeDot={{ r: 3, strokeWidth: 0 }}
               />
