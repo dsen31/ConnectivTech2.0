@@ -67,7 +67,7 @@ export async function GET(
 
   await supabase
     .from("campaign_leads")
-    .update({ status: "unsubscribed" })
+    .update({ status: "unsubscribed", next_send_at: null })
     .eq("id", data.cl);
 
   await supabase.from("email_events").insert({
