@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { updateEmailSignature, updateDailySendLimit } from "@/app/actions/settings";
+import { SendTestEmailDialog } from "@/components/settings/SendTestEmailDialog";
 import { toast } from "sonner";
 
 interface SignatureFormProps {
@@ -75,7 +76,8 @@ export function SignatureForm({ initialSignature, initialDailyLimit }: Signature
         />
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-between">
+        <SendTestEmailDialog />
         <Button size="sm" onClick={handleSave} disabled={isPending}>
           {isPending ? "Saving…" : "Save"}
         </Button>

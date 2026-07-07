@@ -63,6 +63,21 @@ function wrapLinks(html: string, base: TrackingData): string {
   });
 }
 
+function linkifySignature(signature: string): string {
+  return signature
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(
+      /dustin@actoradvisory\.com/g,
+      '<a href="mailto:dustin@actoradvisory.com" style="color:#374151;text-decoration:none">dustin@actoradvisory.com</a>'
+    )
+    .replace(
+      /(?<!@)actoradvisory\.com/g,
+      '<a href="https://actoradvisory.com" style="color:#374151;text-decoration:none">actoradvisory.com</a>'
+    );
+}
+
 function buildHtml(
   bodyText: string,
   bodyHtml: string | null,
@@ -77,18 +92,7 @@ function buildHtml(
     .replace(/>/g, "&gt;");
   let content = bodyHtml ?? `<div style="white-space:pre-line">${escaped}</div>`;
   content = wrapLinks(content, trackBase);
-  const escapedSig = signature
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(
-      /dustin@actoradvisory\.com/g,
-      '<a href="mailto:dustin@actoradvisory.com" style="color:#374151;text-decoration:none">dustin@actoradvisory.com</a>'
-    )
-    .replace(
-      /(?<!@)actoradvisory\.com/g,
-      '<a href="https://actoradvisory.com" style="color:#374151;text-decoration:none">actoradvisory.com</a>'
-    );
+  const escapedSig = linkifySignature(signature);
   const sigBlock = `<div style="margin-top:24px;font-size:13px;color:#374151;white-space:pre-line">${escapedSig}</div>`;
   const footer = `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center"><a href="${unsubUrl}" style="color:#9ca3af;font-size:11px;text-decoration:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">Unsubscribe</a></div>`;
   const pixel = `<img src="${APP_URL}/api/track/open/${openToken}" width="1" height="1" style="display:none;border:0" alt="" />`;
@@ -315,4 +319,31 @@ export async function sendCampaignStep(campaignId: string): Promise<{
   revalidatePath("/leads");
 
   return results;
+}
+
+export async function sendTestEmail(email: string): Promise<void> {
+  const trimmed = email.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    throw new Error("Invalid email address");
+  }
+
+  const signature = await getEmailSignature();
+  const bodyText = "This is a test email to preview your signature and formatting.";
+  const escapedBody = bodyText
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  const sigBlock = `<div style="margin-top:24px;font-size:13px;color:#374151;white-space:pre-line">${linkifySignature(signature)}</div>`;
+  const html = `<!DOCTYPE html><html><body><div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:0 auto;padding:20px 0"><div style="white-space:pre-line">${escapedBody}</div>${sigBlock}</div></body></html>`;
+  const text = `${bodyText}\n\n${signature}`;
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: trimmed,
+    replyTo: ["dustin@actoradvisory.com"],
+    subject: "Test email from aCTOr Advisory",
+    html,
+    text,
+  });
+  if (error) throw new Error(error.message);
 }
