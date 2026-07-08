@@ -56,6 +56,9 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 const FROM = "Dustin <dustin@actoradvisory.com>";
 
+const LOGO_URL =
+  "https://ebwtcbfupujwmgmrnzwp.supabase.co/storage/v1/object/public/Assets/actor-advisory-logo.png";
+
 function wrapLinks(html: string, base: TrackingData): string {
   return html.replace(/href="(https?:\/\/[^"]+)"/g, (_match, url: string) => {
     const token = encodeTrackingToken({ ...base, u: url });
@@ -78,6 +81,11 @@ function linkifySignature(signature: string): string {
     );
 }
 
+function buildSigBlock(signature: string): string {
+  const logo = `<img src="${LOGO_URL}" width="150" height="auto" alt="aCTOr Advisory" style="display:block;width:150px;height:auto;margin-bottom:12px" />`;
+  return `<div style="margin-top:24px;font-size:13px;color:#374151;white-space:pre-line">${logo}${linkifySignature(signature)}</div>`;
+}
+
 function buildHtml(
   bodyText: string,
   bodyHtml: string | null,
@@ -92,8 +100,7 @@ function buildHtml(
     .replace(/>/g, "&gt;");
   let content = bodyHtml ?? `<div style="white-space:pre-line">${escaped}</div>`;
   content = wrapLinks(content, trackBase);
-  const escapedSig = linkifySignature(signature);
-  const sigBlock = `<div style="margin-top:24px;font-size:13px;color:#374151;white-space:pre-line">${escapedSig}</div>`;
+  const sigBlock = buildSigBlock(signature);
   const footer = `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center"><a href="${unsubUrl}" style="color:#9ca3af;font-size:11px;text-decoration:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">Unsubscribe</a></div>`;
   const pixel = `<img src="${APP_URL}/api/track/open/${openToken}" width="1" height="1" style="display:none;border:0" alt="" />`;
   return `<!DOCTYPE html><html><body><div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:0 auto;padding:20px 0">${content}${sigBlock}${footer}${pixel}</div></body></html>`;
@@ -333,7 +340,7 @@ export async function sendTestEmail(email: string): Promise<void> {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
-  const sigBlock = `<div style="margin-top:24px;font-size:13px;color:#374151;white-space:pre-line">${linkifySignature(signature)}</div>`;
+  const sigBlock = buildSigBlock(signature);
   const html = `<!DOCTYPE html><html><body><div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:0 auto;padding:20px 0"><div style="white-space:pre-line">${escapedBody}</div>${sigBlock}</div></body></html>`;
   const text = `${bodyText}\n\n${signature}`;
 
