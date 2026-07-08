@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { Database } from "@/lib/supabase/types";
-import type { LeadWithTags, CampaignEnrollment } from "@/types";
+import type { LeadWithTags, CampaignEnrollment, UnsubscribedLeadRow } from "@/types";
 
 type LeadInsert = Database["public"]["Tables"]["leads"]["Insert"];
 type LeadUpdate = Database["public"]["Tables"]["leads"]["Update"];
@@ -27,6 +27,27 @@ export async function getLead(id: string): Promise<LeadWithTags> {
     .single();
   if (error) throw new Error(error.message);
   return data as unknown as LeadWithTags;
+}
+
+export async function getUnsubscribedLeads(): Promise<UnsubscribedLeadRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("campaign_leads")
+    .select("id, leads(id, first_name, last_name, email, company_name), campaigns(id, name)")
+    .eq("status", "unsubscribed")
+    .order("enrolled_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as unknown as Array<{
+    id: string;
+    leads: UnsubscribedLeadRow["lead"] | null;
+    campaigns: UnsubscribedLeadRow["campaign"];
+  }>)
+    .filter((row) => row.leads !== null)
+    .map((row) => ({
+      campaign_lead_id: row.id,
+      lead: row.leads!,
+      campaign: row.campaigns,
+    }));
 }
 
 export async function getLeadEnrollments(leadId: string): Promise<CampaignEnrollment[]> {

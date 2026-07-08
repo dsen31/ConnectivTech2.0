@@ -1,9 +1,13 @@
-import { getLeads } from "@/app/actions/leads";
+import { getLeads, getUnsubscribedLeads } from "@/app/actions/leads";
 import { getTags } from "@/app/actions/tags";
 import { LeadTable } from "@/components/leads/LeadTable";
 
 export default async function LeadsPage() {
-  const [leads, tags] = await Promise.all([getLeads(), getTags()]);
+  const [leads, tags, unsubscribedLeads] = await Promise.all([
+    getLeads(),
+    getTags(),
+    getUnsubscribedLeads(),
+  ]);
 
   return (
     <div className="space-y-4 max-w-7xl">
@@ -13,7 +17,7 @@ export default async function LeadsPage() {
           Manage and segment your contacts
         </p>
       </div>
-      <LeadTable leads={leads} tags={tags} />
+      <LeadTable leads={leads} tags={tags} unsubscribedLeads={unsubscribedLeads} />
     </div>
   );
 }

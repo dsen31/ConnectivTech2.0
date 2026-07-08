@@ -44,6 +44,7 @@ import {
   Trash2,
   Copy,
   Mail,
+  MailX,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { deleteLead, clearAllLeads } from "@/app/actions/leads";
@@ -52,6 +53,7 @@ import { NewLeadDialog } from "@/components/leads/NewLeadDialog";
 import {
   type LeadWithTags,
   type Tag,
+  type UnsubscribedLeadRow,
   extractTags,
   STATUS_STYLES,
   LEAD_STATUSES,
@@ -63,9 +65,10 @@ const PAGE_SIZE = 25;
 interface LeadTableProps {
   leads: LeadWithTags[];
   tags: Tag[];
+  unsubscribedLeads: UnsubscribedLeadRow[];
 }
 
-export function LeadTable({ leads, tags }: LeadTableProps) {
+export function LeadTable({ leads, tags, unsubscribedLeads }: LeadTableProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -73,6 +76,7 @@ export function LeadTable({ leads, tags }: LeadTableProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [industryFilter, setIndustryFilter] = useState<string>("all");
   const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(new Set());
+  const [showUnsubscribed, setShowUnsubscribed] = useState(false);
   const [page, setPage] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<LeadWithTags | null>(null);
   const [clearAllOpen, setClearAllOpen] = useState(false);
@@ -105,8 +109,25 @@ export function LeadTable({ leads, tags }: LeadTableProps) {
     });
   }, [leads, search, statusFilter, industryFilter, selectedTagIds]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const filteredUnsubscribed = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return unsubscribedLeads;
+    return unsubscribedLeads.filter((row) => {
+      const lead = row.lead;
+      return (
+        lead.first_name.toLowerCase().includes(q) ||
+        lead.last_name.toLowerCase().includes(q) ||
+        lead.email.toLowerCase().includes(q) ||
+        (lead.company_name?.toLowerCase().includes(q) ?? false)
+      );
+    });
+  }, [unsubscribedLeads, search]);
+
+  const totalPages = showUnsubscribed
+    ? Math.max(1, Math.ceil(filteredUnsubscribed.length / PAGE_SIZE))
+    : Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageLeads = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const pageUnsubscribed = filteredUnsubscribed.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   function resetPage() {
     setPage(0);
@@ -172,99 +193,116 @@ export function LeadTable({ leads, tags }: LeadTableProps) {
             />
           </div>
 
-          {/* Status filter */}
-          <DropdownMenu>
-            <DropdownMenuTrigger className={triggerCls}>
-              {statusFilter === "all"
-                ? "All statuses"
-                : LEAD_STATUSES.find((s) => s.value === statusFilter)?.label}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuCheckboxItem
-                checked={statusFilter === "all"}
-                onCheckedChange={() => { setStatusFilter("all"); resetPage(); }}
-              >
-                All statuses
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuSeparator />
-              {LEAD_STATUSES.map((s) => (
-                <DropdownMenuCheckboxItem
-                  key={s.value}
-                  checked={statusFilter === s.value}
-                  onCheckedChange={() => { setStatusFilter(s.value); resetPage(); }}
-                >
-                  {s.label}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Industry filter */}
-          {industries.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger className={triggerCls}>
-                {industryFilter === "all" ? "All industries" : industryFilter}
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="max-h-64 overflow-y-auto">
-                <DropdownMenuCheckboxItem
-                  checked={industryFilter === "all"}
-                  onCheckedChange={() => { setIndustryFilter("all"); resetPage(); }}
-                >
-                  All industries
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuSeparator />
-                {industries.map((ind) => (
+          {!showUnsubscribed && (
+            <>
+              {/* Status filter */}
+              <DropdownMenu>
+                <DropdownMenuTrigger className={triggerCls}>
+                  {statusFilter === "all"
+                    ? "All statuses"
+                    : LEAD_STATUSES.find((s) => s.value === statusFilter)?.label}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
                   <DropdownMenuCheckboxItem
-                    key={ind}
-                    checked={industryFilter === ind}
-                    onCheckedChange={() => { setIndustryFilter(ind); resetPage(); }}
+                    checked={statusFilter === "all"}
+                    onCheckedChange={() => { setStatusFilter("all"); resetPage(); }}
                   >
-                    {ind}
+                    All statuses
                   </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+                  <DropdownMenuSeparator />
+                  {LEAD_STATUSES.filter((s) => s.value !== "unsubscribed").map((s) => (
+                    <DropdownMenuCheckboxItem
+                      key={s.value}
+                      checked={statusFilter === s.value}
+                      onCheckedChange={() => { setStatusFilter(s.value); resetPage(); }}
+                    >
+                      {s.label}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-          {/* Tags filter */}
-          {tags.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger className={triggerCls}>
-                <TagIcon className="h-3.5 w-3.5 mr-1" />
-                Tags
-                {selectedTagIds.size > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-4 px-1 text-xs">
-                    {selectedTagIds.size}
-                  </Badge>
-                )}
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuLabel>Filter by tag</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {tags.map((tag) => (
-                  <DropdownMenuCheckboxItem
-                    key={tag.id}
-                    checked={selectedTagIds.has(tag.id)}
-                    onCheckedChange={() => toggleTag(tag.id)}
-                  >
-                    <span
-                      className="mr-2 inline-block h-2 w-2 rounded-full"
-                      style={{ backgroundColor: tag.color }}
-                    />
-                    {tag.name}
-                  </DropdownMenuCheckboxItem>
-                ))}
-                {selectedTagIds.size > 0 && (
-                  <>
+              {/* Industry filter */}
+              {industries.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger className={triggerCls}>
+                    {industryFilter === "all" ? "All industries" : industryFilter}
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="max-h-64 overflow-y-auto">
+                    <DropdownMenuCheckboxItem
+                      checked={industryFilter === "all"}
+                      onCheckedChange={() => { setIndustryFilter("all"); resetPage(); }}
+                    >
+                      All industries
+                    </DropdownMenuCheckboxItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={() => setSelectedTagIds(new Set())}>
-                      Clear tag filter
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    {industries.map((ind) => (
+                      <DropdownMenuCheckboxItem
+                        key={ind}
+                        checked={industryFilter === ind}
+                        onCheckedChange={() => { setIndustryFilter(ind); resetPage(); }}
+                      >
+                        {ind}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+
+              {/* Tags filter */}
+              {tags.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger className={triggerCls}>
+                    <TagIcon className="h-3.5 w-3.5 mr-1" />
+                    Tags
+                    {selectedTagIds.size > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-4 px-1 text-xs">
+                        {selectedTagIds.size}
+                      </Badge>
+                    )}
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuLabel>Filter by tag</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {tags.map((tag) => (
+                      <DropdownMenuCheckboxItem
+                        key={tag.id}
+                        checked={selectedTagIds.has(tag.id)}
+                        onCheckedChange={() => toggleTag(tag.id)}
+                      >
+                        <span
+                          className="mr-2 inline-block h-2 w-2 rounded-full"
+                          style={{ backgroundColor: tag.color }}
+                        />
+                        {tag.name}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                    {selectedTagIds.size > 0 && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onSelect={() => setSelectedTagIds(new Set())}>
+                          Clear tag filter
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </>
           )}
+
+          {/* Unsubscribed view toggle */}
+          <Button
+            variant={showUnsubscribed ? "default" : "outline"}
+            size="sm"
+            onClick={() => { setShowUnsubscribed((v) => !v); resetPage(); }}
+          >
+            <MailX className="h-3.5 w-3.5 mr-1" />
+            Unsubscribed
+            <Badge variant="secondary" className="ml-1 h-4 px-1 text-xs">
+              {unsubscribedLeads.length}
+            </Badge>
+          </Button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -296,13 +334,60 @@ export function LeadTable({ leads, tags }: LeadTableProps) {
 
       {/* Count */}
       <p className="text-xs text-muted-foreground">
-        {filtered.length === leads.length
-          ? `${leads.length} leads`
-          : `${filtered.length} of ${leads.length} leads`}
+        {showUnsubscribed
+          ? `${filteredUnsubscribed.length} unsubscribed lead${filteredUnsubscribed.length !== 1 ? "s" : ""}`
+          : filtered.length === leads.length
+            ? `${leads.length} leads`
+            : `${filtered.length} of ${leads.length} leads`}
       </p>
 
       {/* Table */}
-      {pageLeads.length === 0 ? (
+      {showUnsubscribed ? (
+        pageUnsubscribed.length === 0 ? (
+          <div className="rounded-lg border border-dashed p-12 text-center">
+            <p className="text-sm text-muted-foreground">
+              {unsubscribedLeads.length === 0
+                ? "No leads have unsubscribed from any campaign."
+                : "No unsubscribed leads match your search."}
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-lg border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Company</TableHead>
+                  <TableHead>Unsubscribed From</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pageUnsubscribed.map((row) => (
+                  <TableRow
+                    key={row.campaign_lead_id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => router.push(`/leads/${row.lead.id}`)}
+                  >
+                    <TableCell className="font-medium">
+                      {row.lead.first_name} {row.lead.last_name}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {row.lead.email}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {row.lead.company_name ?? <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {row.campaign?.name ?? <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )
+      ) : pageLeads.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center">
           <p className="text-sm text-muted-foreground">
             {leads.length === 0

@@ -104,6 +104,12 @@ export type LeadWithTags = Lead & {
   campaign_leads?: Array<{ id: string }>;
 };
 
+export type UnsubscribedLeadRow = {
+  campaign_lead_id: string;
+  lead: Pick<Lead, "id" | "first_name" | "last_name" | "email" | "company_name">;
+  campaign: Pick<Campaign, "id" | "name"> | null;
+};
+
 export type CampaignEnrollment = {
   id: string;
   campaign_id: string;
