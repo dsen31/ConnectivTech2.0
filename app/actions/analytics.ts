@@ -24,10 +24,30 @@ export type DailyData = {
 type EventRow = {
   event_type: string;
   created_at: string;
+  campaign_lead_id: string;
   campaign_leads: {
     campaign_id: string;
     campaigns: { id: string; name: string } | null;
   } | null;
+};
+
+type CampaignAgg = {
+  campaign_id: string;
+  campaign_name: string;
+  sentSet: Set<string>;
+  openedSet: Set<string>;
+  clickedSet: Set<string>;
+  unsubscribedSet: Set<string>;
+  replied: number;
+};
+
+type DayAgg = {
+  date: string;
+  label: string;
+  sentSet: Set<string>;
+  openedSet: Set<string>;
+  unsubscribedSet: Set<string>;
+  replied: number;
 };
 
 export async function getAnalyticsData(): Promise<{
@@ -39,12 +59,12 @@ export async function getAnalyticsData(): Promise<{
 
   const { data } = await supabase
     .from("email_events")
-    .select("event_type, created_at, campaign_leads(campaign_id, campaigns(id, name))");
+    .select("event_type, created_at, campaign_lead_id, campaign_leads(campaign_id, campaigns(id, name))");
 
   const events = (data ?? []) as unknown as EventRow[];
 
-  // ── Per-campaign metrics (all time) ──────────────────────────────────────────
-  const campaignMap = new Map<string, CampaignMetrics>();
+  // ── Per-campaign metrics (all time) — distinct campaign_lead_id per event type ──
+  const campaignAggMap = new Map<string, CampaignAgg>();
 
   for (const e of events) {
     const cl = e.campaign_leads;
@@ -52,41 +72,57 @@ export async function getAnalyticsData(): Promise<{
     const cid = cl.campaign_id;
     const cname = cl.campaigns?.name ?? "Unknown";
 
-    if (!campaignMap.has(cid)) {
-      campaignMap.set(cid, {
+    if (!campaignAggMap.has(cid)) {
+      campaignAggMap.set(cid, {
         campaign_id: cid,
         campaign_name: cname,
-        sent: 0,
-        opened: 0,
+        sentSet: new Set(),
+        openedSet: new Set(),
+        clickedSet: new Set(),
+        unsubscribedSet: new Set(),
         replied: 0,
-        clicked: 0,
-        unsubscribed: 0,
       });
     }
 
-    const m = campaignMap.get(cid)!;
-    if (e.event_type === "sent") m.sent++;
-    else if (e.event_type === "opened") m.opened++;
-    else if (e.event_type === "replied") m.replied++;
-    else if (e.event_type === "clicked") m.clicked++;
-    else if (e.event_type === "unsubscribed") m.unsubscribed++;
+    const agg = campaignAggMap.get(cid)!;
+    if (e.event_type === "sent") agg.sentSet.add(e.campaign_lead_id);
+    else if (e.event_type === "opened") agg.openedSet.add(e.campaign_lead_id);
+    else if (e.event_type === "replied") agg.replied++;
+    else if (e.event_type === "clicked") agg.clickedSet.add(e.campaign_lead_id);
+    else if (e.event_type === "unsubscribed") agg.unsubscribedSet.add(e.campaign_lead_id);
   }
 
-  const campaignMetrics = Array.from(campaignMap.values()).sort((a, b) => b.sent - a.sent);
+  const campaignMetrics = Array.from(campaignAggMap.values())
+    .map((agg) => ({
+      campaign_id: agg.campaign_id,
+      campaign_name: agg.campaign_name,
+      sent: agg.sentSet.size,
+      opened: agg.openedSet.size,
+      replied: agg.replied,
+      clicked: agg.clickedSet.size,
+      unsubscribed: agg.unsubscribedSet.size,
+    }))
+    .sort((a, b) => b.sent - a.sent);
 
-  // ── Daily data (last 30 days) ─────────────────────────────────────────────────
+  // ── Daily data (last 30 days) — distinct campaign_lead_id per event type ────────
   const now = new Date();
-  const dayMap = new Map<string, DailyData>();
-  const dailyData: DailyData[] = [];
+  const dayAggMap = new Map<string, DayAgg>();
+  const dayOrder: string[] = [];
 
   for (let i = 29; i >= 0; i--) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);
     const key = d.toISOString().slice(0, 10);
     const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const entry: DailyData = { date: key, label, sent: 0, opened: 0, replied: 0, unsubscribed: 0 };
-    dailyData.push(entry);
-    dayMap.set(key, entry);
+    dayOrder.push(key);
+    dayAggMap.set(key, {
+      date: key,
+      label,
+      sentSet: new Set(),
+      openedSet: new Set(),
+      unsubscribedSet: new Set(),
+      replied: 0,
+    });
   }
 
   const cutoff = new Date(now);
@@ -97,13 +133,25 @@ export async function getAnalyticsData(): Promise<{
     const d = new Date(e.created_at);
     if (d < cutoff) continue;
     const key = e.created_at.slice(0, 10);
-    const day = dayMap.get(key);
+    const day = dayAggMap.get(key);
     if (!day) continue;
-    if (e.event_type === "sent") day.sent++;
-    else if (e.event_type === "opened") day.opened++;
+    if (e.event_type === "sent") day.sentSet.add(e.campaign_lead_id);
+    else if (e.event_type === "opened") day.openedSet.add(e.campaign_lead_id);
     else if (e.event_type === "replied") day.replied++;
-    else if (e.event_type === "unsubscribed") day.unsubscribed++;
+    else if (e.event_type === "unsubscribed") day.unsubscribedSet.add(e.campaign_lead_id);
   }
+
+  const dailyData: DailyData[] = dayOrder.map((key) => {
+    const agg = dayAggMap.get(key)!;
+    return {
+      date: agg.date,
+      label: agg.label,
+      sent: agg.sentSet.size,
+      opened: agg.openedSet.size,
+      replied: agg.replied,
+      unsubscribed: agg.unsubscribedSet.size,
+    };
+  });
 
   // ── Overall totals ────────────────────────────────────────────────────────────
   const totals = campaignMetrics.reduce(

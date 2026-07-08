@@ -2,6 +2,33 @@ import { createClient } from "@supabase/supabase-js";
 import { decodeTrackingToken } from "@/lib/email/tracking";
 import type { Database } from "@/lib/supabase/types";
 
+const CONFIRM_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Unsubscribe</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb;color:#111827;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:16px}
+    .card{background:#fff;border-radius:12px;padding:40px 32px;max-width:400px;width:100%;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06)}
+    h1{font-size:18px;font-weight:600;margin-bottom:8px}
+    p{font-size:14px;color:#6b7280;line-height:1.6;margin-bottom:20px}
+    button{font:inherit;font-size:14px;font-weight:600;color:#fff;background:#dc2626;border:0;border-radius:8px;padding:10px 20px;cursor:pointer}
+    button:hover{background:#b91c1c}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Unsubscribe from this campaign?</h1>
+    <p>You won't receive any more emails from this campaign.</p>
+    <form method="POST">
+      <button type="submit">Yes, unsubscribe me</button>
+    </form>
+  </div>
+</body>
+</html>`;
+
 const SUCCESS_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -47,6 +74,25 @@ const ERROR_HTML = `<!DOCTYPE html>
 </html>`;
 
 export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ token: string }> }
+) {
+  const { token } = await params;
+  const data = decodeTrackingToken(token);
+
+  if (!data) {
+    return new Response(ERROR_HTML, {
+      status: 400,
+      headers: { "Content-Type": "text/html" },
+    });
+  }
+
+  return new Response(CONFIRM_HTML, {
+    headers: { "Content-Type": "text/html" },
+  });
+}
+
+export async function POST(
   _req: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
