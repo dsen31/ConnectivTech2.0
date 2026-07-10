@@ -113,6 +113,8 @@ export async function sendCampaignStep(campaignId: string): Promise<{
   limitReached: boolean;
   weekendBlocked: boolean;
 }> {
+  const results = { sent: 0, skipped: 0, errors: 0, limitReached: false, weekendBlocked: false };
+  try {
   const dayName = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
     weekday: "short",
@@ -199,8 +201,6 @@ export async function sendCampaignStep(campaignId: string): Promise<{
       abWinners.set(s.id, Math.abs(aRate - bRate) >= 0.10 ? (aRate > bRate ? "A" : "B") : null);
     }
   }
-
-  const results = { sent: 0, skipped: 0, errors: 0, limitReached: false, weekendBlocked: false };
 
   for (const enrollment of enrollments ?? []) {
     if (remaining <= 0) {
@@ -319,7 +319,7 @@ export async function sendCampaignStep(campaignId: string): Promise<{
 
       results.sent++;
       remaining--;
-    } catch {
+    } catch (err) { console.error("Email send error for lead:", err);
       results.errors++;
     }
   }
@@ -327,6 +327,7 @@ export async function sendCampaignStep(campaignId: string): Promise<{
   revalidatePath(`/campaigns/${campaignId}`);
   revalidatePath("/pipeline");
   revalidatePath("/leads");
+  } catch (err) { console.error("sendCampaignStep crashed:", err); throw err; }
 
   return results;
 }
