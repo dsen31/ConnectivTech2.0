@@ -274,6 +274,7 @@ export async function sendCampaignStep(campaignId: string): Promise<{
         from: FROM,
         to: lead.email,
         replyTo: ["dustin@actoradvisory.com"],
+        bcc: "dustin@actoradvisory.com",
         subject,
         html,
         text,
