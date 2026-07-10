@@ -151,11 +151,13 @@ export async function sendCampaignStep(campaignId: string): Promise<{
     .order("step_number");
   if (stepsErr) throw new Error(stepsErr.message);
 
+  const now = new Date().toISOString();
   const { data: enrollments, error: enrollErr } = await supabase
     .from("campaign_leads")
     .select("id, lead_id, current_step, leads(*)")
     .eq("campaign_id", campaignId)
-    .eq("status", "active");
+    .eq("status", "active")
+    .or(`next_send_at.is.null,next_send_at.lte.${now}`);
   if (enrollErr) throw new Error(enrollErr.message);
 
   const signature = await getEmailSignature();
