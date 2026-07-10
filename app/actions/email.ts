@@ -159,7 +159,8 @@ export async function sendCampaignStep(campaignId: string): Promise<{
     .select("id, lead_id, current_step, leads(*)")
     .eq("campaign_id", campaignId)
     .eq("status", "active")
-    .or(`next_send_at.is.null,next_send_at.lte.${now}`);
+    .or(`next_send_at.is.null,next_send_at.lte.${now}`)
+    .order("current_step", { ascending: false });
   if (enrollErr) throw new Error(enrollErr.message);
 
   const signature = await getEmailSignature();
