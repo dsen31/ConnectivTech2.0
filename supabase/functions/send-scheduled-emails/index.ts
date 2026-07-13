@@ -186,8 +186,8 @@ async function processScheduledEmails() {
     .from("campaign_leads")
     .select("id, campaign_id, lead_id, current_step, leads(*)")
     .eq("status", "active")
-    .not("next_send_at", "is", null)
-    .lte("next_send_at", now);
+    .or(`next_send_at.is.null,next_send_at.lte.${now}`)
+    .order("current_step", { ascending: false });
 
   if (dueErr) throw new Error(dueErr.message);
 
