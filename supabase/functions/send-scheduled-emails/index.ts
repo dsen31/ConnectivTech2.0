@@ -110,7 +110,7 @@ function buildHtml(
   let content = bodyHtml ?? `<div style="white-space:pre-line">${esc(bodyText)}</div>`;
   content = wrapLinks(content, trackBase);
   const sigBlock = `<div style="margin-top:24px;font-size:13px;color:#374151;white-space:pre-line">${esc(signature)}</div>`;
-  const footer = `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center"><a href="${unsubUrl}" style="color:#9ca3af;font-size:11px;text-decoration:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">Unsubscribe</a></div>`;
+  const footer = `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center"><a href="${unsubUrl}" style="color:#4b5563;font-size:14px;font-weight:500;text-decoration:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">Unsubscribe</a></div>`;
   const pixel = `<img src="${APP_URL}/api/track/open/${openToken}" width="1" height="1" style="display:none;border:0" alt="" />`;
   return `<!DOCTYPE html><html><body><div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:0 auto;padding:20px 0">${content}${sigBlock}${footer}${pixel}</div></body></html>`;
 }
