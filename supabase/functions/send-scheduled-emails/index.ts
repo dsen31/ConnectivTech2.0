@@ -131,7 +131,6 @@ async function sendViaResend(
       from: FROM,
       to,
       reply_to: REPLY_TO,
-      bcc: "dustin@actoradvisory.com",
       subject,
       html,
       text,

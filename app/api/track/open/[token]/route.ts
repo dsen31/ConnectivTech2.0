@@ -19,12 +19,26 @@ export async function GET(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
-    await supabase.from("email_events").insert({
-      campaign_lead_id: data.cl,
-      lead_id: data.l,
-      step_id: data.s,
-      event_type: "opened",
-    });
+
+    // Dedup: only record the first open per lead per step. Without this,
+    // every repeat pixel fetch (mail client prefetching, re-opening the
+    // email, security scanners re-scanning links) counts as a new "open",
+    // inflating open rates well past what real readers account for.
+    const { count: existingOpens } = await supabase
+      .from("email_events")
+      .select("id", { count: "exact", head: true })
+      .eq("campaign_lead_id", data.cl)
+      .eq("step_id", data.s)
+      .eq("event_type", "opened");
+
+    if (!existingOpens) {
+      await supabase.from("email_events").insert({
+        campaign_lead_id: data.cl,
+        lead_id: data.l,
+        step_id: data.s,
+        event_type: "opened",
+      });
+    }
   }
 
   return new Response(PIXEL, {
