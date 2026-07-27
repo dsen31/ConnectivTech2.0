@@ -341,13 +341,15 @@ async function processScheduledEmails() {
           .eq("campaign_lead_id", enrollment.id)
           .eq("event_type", "sent");
 
-        await supabase.from("email_events").insert({
+        const { error: insertErr } = await supabase.from("email_events").insert({
           campaign_lead_id: enrollment.id,
           lead_id: lead.id,
           step_id: step.id,
           event_type: "sent",
           ...(abVariant ? { metadata: { variant: abVariant } } : {}),
         });
+
+        if (insertErr) throw new Error(`Failed to log event: ${insertErr.message}`);
 
         // Move to contacted on first send
         if ((priorSentCount ?? 0) === 0) {

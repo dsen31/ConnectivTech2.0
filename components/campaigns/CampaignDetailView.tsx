@@ -38,6 +38,22 @@ function fmtDate(iso: string) {
 function fmtShort(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
+function fmtRelative(iso: string) {
+  const diffMs = new Date(iso).getTime() - Date.now();
+  const diffMins = Math.round(diffMs / 60000);
+  if (diffMins <= 0) return "Due now";
+  if (diffMins < 60) return `in ${diffMins}m`;
+  const diffHours = Math.round(diffMins / 60);
+  if (diffHours < 24) return `in ${diffHours}h`;
+  const diffDays = Math.round(diffHours / 24);
+  return `in ${diffDays}d`;
+}
+function isDueNow(e: Pick<EnrollmentWithLead, "status" | "next_send_at">) {
+  return (
+    e.status === "active" &&
+    (!e.next_send_at || new Date(e.next_send_at).getTime() <= Date.now())
+  );
+}
 import { SequenceBuilder } from "@/components/campaigns/SequenceBuilder";
 import { EnrollmentDialog } from "@/components/campaigns/EnrollmentDialog";
 import type {
@@ -111,9 +127,13 @@ export function CampaignDetailView({
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   const activeCount = enrollments.filter((e) => e.status === "active").length;
-  const visibleEnrollments = statusFilter
-    ? enrollments.filter((e) => e.status === statusFilter)
-    : enrollments;
+  const dueNowCount = enrollments.filter(isDueNow).length;
+  const visibleEnrollments =
+    statusFilter === "due_now"
+      ? enrollments.filter(isDueNow)
+      : statusFilter
+      ? enrollments.filter((e) => e.status === statusFilter)
+      : enrollments;
   const allSelected = selectedIds.size === visibleEnrollments.length && visibleEnrollments.length > 0;
   const someSelected = selectedIds.size > 0 && !allSelected;
 
@@ -358,25 +378,27 @@ export function CampaignDetailView({
         <TabsContent value="enrolled">
           {/* Stats row */}
           {enrollments.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 mb-4">
               {[
-                { label: "Active", key: "active", color: "text-green-600" },
-                { label: "Replied", key: "replied", color: "text-blue-600" },
-                { label: "Completed", key: "completed", color: "text-muted-foreground" },
-                { label: "Paused", key: "paused", color: "text-yellow-600" },
-                { label: "Unsubscribed", key: "unsubscribed", color: "text-red-600" },
-              ].map(({ label, key, color }) => (
+                { label: "Due Now", key: "due_now", color: "text-orange-600", count: dueNowCount },
+                { label: "Active", key: "active", color: "text-green-600", count: stats["active"] ?? 0 },
+                { label: "Replied", key: "replied", color: "text-blue-600", count: stats["replied"] ?? 0 },
+                { label: "Completed", key: "completed", color: "text-muted-foreground", count: stats["completed"] ?? 0 },
+                { label: "Paused", key: "paused", color: "text-yellow-600", count: stats["paused"] ?? 0 },
+                { label: "Unsubscribed", key: "unsubscribed", color: "text-red-600", count: stats["unsubscribed"] ?? 0 },
+              ].map(({ label, key, color, count }) => (
                 <button
                   key={key}
                   type="button"
                   onClick={() => handleStatClick(key)}
                   className={cn(
                     "rounded-lg border bg-card p-3 text-center w-full transition-colors hover:bg-muted/50",
-                    statusFilter === key && "ring-2 ring-primary border-primary bg-primary/5"
+                    statusFilter === key && "ring-2 ring-primary border-primary bg-primary/5",
+                    key === "due_now" && count > 0 && "border-orange-300"
                   )}
                 >
                   <p className={cn("text-xl font-bold", color)}>
-                    {stats[key] ?? 0}
+                    {count}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
                 </button>
@@ -411,7 +433,9 @@ export function CampaignDetailView({
           {statusFilter && (
             <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
               <span>
-                Showing {visibleEnrollments.length} {statusFilter} lead{visibleEnrollments.length !== 1 ? "s" : ""}
+                Showing {visibleEnrollments.length}{" "}
+                {statusFilter === "due_now" ? "due-now" : statusFilter} lead
+                {visibleEnrollments.length !== 1 ? "s" : ""}
               </span>
               <button
                 type="button"
@@ -462,6 +486,9 @@ export function CampaignDetailView({
                     <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground">
                       Step
                     </th>
+                    <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground hidden sm:table-cell">
+                      Next Send
+                    </th>
                     <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground">
                       Status
                     </th>
@@ -509,7 +536,18 @@ export function CampaignDetailView({
                           {lead?.company_name ?? "—"}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">
-                          Step {enrollment.current_step}
+                          Step {enrollment.current_step} of {campaign.campaign_steps.length}
+                        </td>
+                        <td className="px-4 py-3 hidden sm:table-cell">
+                          {enrollment.status !== "active" ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : isDueNow(enrollment) ? (
+                            <span className="text-orange-600 font-medium">Due now</span>
+                          ) : (
+                            <span className="text-muted-foreground">
+                              {fmtRelative(enrollment.next_send_at!)}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <EnrollmentStatusBadge status={enrollment.status} />
