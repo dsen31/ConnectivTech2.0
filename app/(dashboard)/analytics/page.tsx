@@ -11,7 +11,7 @@ function pct(n: number, d: number): string {
 }
 
 export default async function AnalyticsPage() {
-  const { campaignMetrics, dailyData, totals } = await getAnalyticsData();
+  const { campaignMetrics, dailyData, totals, replyBreakdown } = await getAnalyticsData();
 
   const summaryStats = [
     { label: "Total Sent", value: totals.sent.toLocaleString(), color: "text-blue-600" },
@@ -45,6 +45,33 @@ export default async function AnalyticsPage() {
 
       {/* 30-day chart */}
       <AnalyticsChartsLoader data={dailyData} />
+
+      {/* Reply breakdown */}
+      {totals.replied > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Reply Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[
+                { label: "Interested", value: replyBreakdown.interested, color: "text-green-600" },
+                { label: "Not Interested", value: replyBreakdown.not_interested, color: "text-red-500" },
+                { label: "Out of Office", value: replyBreakdown.out_of_office, color: "text-yellow-600" },
+                { label: "Other", value: replyBreakdown.other, color: "text-muted-foreground" },
+              ].map(({ label, value, color }) => (
+                <div key={label} className="text-center">
+                  <div className={cn("text-2xl font-bold tabular-nums", color)}>{value}</div>
+                  <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-4">
+              Categorized automatically from reply content. Out-of-office replies don&apos;t need follow-up; interested replies are your hottest leads to prioritize.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Per-campaign table */}
       <Card>

@@ -2,6 +2,13 @@
 
 import { createClient } from "@/lib/supabase/server";
 
+export type ReplyBreakdown = {
+  interested: number;
+  not_interested: number;
+  out_of_office: number;
+  other: number;
+};
+
 export type CampaignMetrics = {
   campaign_id: string;
   campaign_name: string;
@@ -10,6 +17,7 @@ export type CampaignMetrics = {
   replied: number;
   clicked: number;
   unsubscribed: number;
+  replyBreakdown: ReplyBreakdown;
 };
 
 export type DailyData = {
@@ -25,6 +33,7 @@ type EventRow = {
   event_type: string;
   created_at: string;
   campaign_lead_id: string;
+  metadata: { category?: string } | null;
   campaign_leads: {
     campaign_id: string;
     campaigns: { id: string; name: string } | null;
@@ -39,6 +48,7 @@ type CampaignAgg = {
   clickedSet: Set<string>;
   unsubscribedSet: Set<string>;
   replied: number;
+  replyBreakdown: ReplyBreakdown;
 };
 
 type DayAgg = {
@@ -54,12 +64,13 @@ export async function getAnalyticsData(): Promise<{
   campaignMetrics: CampaignMetrics[];
   dailyData: DailyData[];
   totals: Pick<CampaignMetrics, "sent" | "opened" | "replied" | "clicked" | "unsubscribed">;
+  replyBreakdown: ReplyBreakdown;
 }> {
   const supabase = await createClient();
 
   const { data } = await supabase
     .from("email_events")
-    .select("event_type, created_at, campaign_lead_id, campaign_leads(campaign_id, campaigns(id, name))");
+    .select("event_type, created_at, campaign_lead_id, metadata, campaign_leads(campaign_id, campaigns(id, name))");
 
   const events = (data ?? []) as unknown as EventRow[];
 
@@ -81,13 +92,22 @@ export async function getAnalyticsData(): Promise<{
         clickedSet: new Set(),
         unsubscribedSet: new Set(),
         replied: 0,
+        replyBreakdown: { interested: 0, not_interested: 0, out_of_office: 0, other: 0 },
       });
     }
 
     const agg = campaignAggMap.get(cid)!;
     if (e.event_type === "sent") agg.sentSet.add(e.campaign_lead_id);
     else if (e.event_type === "opened") agg.openedSet.add(e.campaign_lead_id);
-    else if (e.event_type === "replied") agg.replied++;
+    else if (e.event_type === "replied") {
+      agg.replied++;
+      const category = e.metadata?.category;
+      if (category === "interested" || category === "not_interested" || category === "out_of_office" || category === "other") {
+        agg.replyBreakdown[category]++;
+      } else {
+        agg.replyBreakdown.other++;
+      }
+    }
     else if (e.event_type === "clicked") agg.clickedSet.add(e.campaign_lead_id);
     else if (e.event_type === "unsubscribed") agg.unsubscribedSet.add(e.campaign_lead_id);
   }
@@ -101,6 +121,7 @@ export async function getAnalyticsData(): Promise<{
       replied: agg.replied,
       clicked: agg.clickedSet.size,
       unsubscribed: agg.unsubscribedSet.size,
+      replyBreakdown: agg.replyBreakdown,
     }))
     .sort((a, b) => b.sent - a.sent);
 
@@ -165,5 +186,15 @@ export async function getAnalyticsData(): Promise<{
     { sent: 0, opened: 0, replied: 0, clicked: 0, unsubscribed: 0 }
   );
 
-  return { campaignMetrics, dailyData, totals };
+  const replyBreakdown = campaignMetrics.reduce(
+    (acc, m) => ({
+      interested: acc.interested + m.replyBreakdown.interested,
+      not_interested: acc.not_interested + m.replyBreakdown.not_interested,
+      out_of_office: acc.out_of_office + m.replyBreakdown.out_of_office,
+      other: acc.other + m.replyBreakdown.other,
+    }),
+    { interested: 0, not_interested: 0, out_of_office: 0, other: 0 }
+  );
+
+  return { campaignMetrics, dailyData, totals, replyBreakdown };
 }

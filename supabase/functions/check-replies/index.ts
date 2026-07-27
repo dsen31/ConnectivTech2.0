@@ -5,6 +5,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GMAIL_CLIENT_ID = Deno.env.get("GMAIL_CLIENT_ID")!;
 const GMAIL_CLIENT_SECRET = Deno.env.get("GMAIL_CLIENT_SECRET")!;
 const GMAIL_REFRESH_TOKEN = Deno.env.get("GMAIL_REFRESH_TOKEN")!;
+const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 
 // ── Gmail OAuth2 ──────────────────────────────────────────────────────────────
 
@@ -36,7 +37,7 @@ function extractEmail(from: string): string | null {
   return bare ? bare[1].toLowerCase() : null;
 }
 
-async function fetchRecentSenders(accessToken: string): Promise<Set<string>> {
+async function fetchRecentReplies(accessToken: string): Promise<Map<string, string>> {
   const headers = { Authorization: `Bearer ${accessToken}` };
 
   // Overlap with hourly runs; in:inbox filters out sent/drafts
@@ -51,14 +52,15 @@ async function fetchRecentSenders(accessToken: string): Promise<Set<string>> {
   const searchData = await searchRes.json();
   const messages: Array<{ id: string }> = searchData.messages ?? [];
 
-  if (messages.length === 0) return new Set();
+  if (messages.length === 0) return new Map();
 
-  const senders = new Set<string>();
+  // Maps sender email -> snippet of their most recent message in the window
+  const bySender = new Map<string, string>();
   const BATCH = 20;
 
   for (let i = 0; i < messages.length; i += BATCH) {
     const batch = messages.slice(i, i + BATCH);
-    const froms = await Promise.all(
+    const results = await Promise.all(
       batch.map(async ({ id }) => {
         const r = await fetch(
           `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=metadata&metadataHeaders=From`,
@@ -68,17 +70,58 @@ async function fetchRecentSenders(accessToken: string): Promise<Set<string>> {
         const d = await r.json();
         const h = (d.payload?.headers as Array<{ name: string; value: string }> | undefined)
           ?.find((x) => x.name.toLowerCase() === "from");
-        return h?.value ?? null;
+        const from = h?.value ?? null;
+        const snippet: string = d.snippet ?? "";
+        return from ? { from, snippet } : null;
       })
     );
-    for (const from of froms) {
-      if (!from) continue;
-      const email = extractEmail(from);
-      if (email) senders.add(email);
+    for (const r of results) {
+      if (!r) continue;
+      const email = extractEmail(r.from);
+      if (email) bySender.set(email, r.snippet);
     }
   }
 
-  return senders;
+  return bySender;
+}
+
+// ── Reply classification ───────────────────────────────────────────────────
+
+type ReplyCategory = "interested" | "not_interested" | "out_of_office" | "other";
+
+const CLASSIFY_SYSTEM_PROMPT =
+  "You are categorizing a reply to a cold outreach email for a sales pipeline. Based on the snippet, classify the reply into exactly one of these categories: 'interested' (wants to learn more, book a call, asks questions about the offer), 'not_interested' (declines, says no thanks, asks to be removed), 'out_of_office' (automated away message, on leave, will return on a date), 'other' (anything ambiguous, unrelated, or unclear). Return only a JSON object with a single key 'category' set to one of those four exact strings, nothing else.";
+
+async function classifyReply(snippet: string): Promise<ReplyCategory> {
+  if (!ANTHROPIC_API_KEY || !snippet.trim()) return "other";
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5",
+        max_tokens: 100,
+        system: CLASSIFY_SYSTEM_PROMPT,
+        messages: [{ role: "user", content: `Reply snippet:\n${snippet}` }],
+      }),
+    });
+    if (!res.ok) return "other";
+    const data = await res.json();
+    const text: string = data.content?.[0]?.text ?? "";
+    const parsed = JSON.parse(text) as { category?: string };
+    const valid: ReplyCategory[] = ["interested", "not_interested", "out_of_office", "other"];
+    if (parsed.category && valid.includes(parsed.category as ReplyCategory)) {
+      return parsed.category as ReplyCategory;
+    }
+  } catch {
+    // fall through
+  }
+  return "other";
 }
 
 // ── Reply detection ───────────────────────────────────────────────────────────
@@ -87,10 +130,10 @@ async function checkReplies() {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   const accessToken = await getAccessToken();
-  const senders = await fetchRecentSenders(accessToken);
-  console.log(`Unique inbox senders in last 25h: ${senders.size}`);
+  const replies = await fetchRecentReplies(accessToken);
+  console.log(`Unique inbox senders in last 25h: ${replies.size}`);
 
-  if (senders.size === 0) return { checked: 0, updated: 0 };
+  if (replies.size === 0) return { checked: 0, updated: 0 };
 
   // Pull all active enrollments with lead email
   const { data: enrollments, error } = await supabase
@@ -107,7 +150,8 @@ async function checkReplies() {
     // deno-lint-ignore no-explicit-any
     const lead = (enrollment as any).leads as { email: string } | null;
     if (!lead?.email) continue;
-    if (!senders.has(lead.email.toLowerCase())) continue;
+    const snippet = replies.get(lead.email.toLowerCase());
+    if (snippet === undefined) continue;
 
     // Resolve step_id from the most recent sent event for this enrollment
     const { data: lastSent } = await supabase
@@ -139,6 +183,8 @@ async function checkReplies() {
       continue;
     }
 
+    const category = await classifyReply(snippet);
+
     await Promise.all([
       supabase
         .from("campaign_leads")
@@ -149,6 +195,7 @@ async function checkReplies() {
         lead_id: enrollment.lead_id,
         step_id: stepId,
         event_type: "replied",
+        metadata: { category },
       }),
       supabase
         .from("pipeline_entries")
@@ -156,7 +203,7 @@ async function checkReplies() {
     ]);
 
     updated++;
-    console.log(`Replied: ${lead.email} (enrollment ${enrollment.id})`);
+    console.log(`Replied: ${lead.email} (enrollment ${enrollment.id}, category: ${category})`);
   }
 
   console.log(`Done — checked: ${enrollments.length}, replied: ${updated}`);
