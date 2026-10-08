@@ -1,10 +1,12 @@
 import { Sidebar } from "@/components/shared/Sidebar";
+import { requireOwner } from "@/lib/auth/owner";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await requireOwner();
   return (
     <div className="flex h-full">
       <Sidebar />

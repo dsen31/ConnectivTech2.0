@@ -3,6 +3,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { Resend } from "resend";
 import { createClient } from "@/lib/supabase/server";
+import { requireOwner } from "@/lib/auth/owner";
 import { resolveTokens } from "@/lib/tokens";
 import { encodeTrackingToken, type TrackingData } from "@/lib/email/tracking";
 import { revalidatePath } from "next/cache";
@@ -113,6 +114,7 @@ export async function sendCampaignStep(campaignId: string): Promise<{
   limitReached: boolean;
   weekendBlocked: boolean;
 }> {
+  await requireOwner();
   const results = { sent: 0, skipped: 0, errors: 0, limitReached: false, weekendBlocked: false };
   try {
   const dayName = new Intl.DateTimeFormat("en-US", {
@@ -333,6 +335,7 @@ export async function sendCampaignStep(campaignId: string): Promise<{
 }
 
 export async function sendTestEmail(email: string): Promise<void> {
+  await requireOwner();
   const trimmed = email.trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
     throw new Error("Invalid email address");

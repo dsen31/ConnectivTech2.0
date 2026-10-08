@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireOwner } from "@/lib/auth/owner";
 import { revalidatePath } from "next/cache";
 import type { Database } from "@/lib/supabase/types";
 import type { CampaignAbStats, StepAbStats } from "@/types";
@@ -10,6 +11,7 @@ type CampaignUpdate = Database["public"]["Tables"]["campaigns"]["Update"];
 type CampaignStepUpdate = Database["public"]["Tables"]["campaign_steps"]["Update"];
 
 export async function getCampaigns() {
+  await requireOwner();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("campaigns")
@@ -20,6 +22,7 @@ export async function getCampaigns() {
 }
 
 export async function getCampaign(id: string) {
+  await requireOwner();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("campaigns")
@@ -44,6 +47,7 @@ export async function getCampaign(id: string) {
 }
 
 export async function createCampaign(formData: CampaignInsert) {
+  await requireOwner();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("campaigns")
@@ -56,6 +60,7 @@ export async function createCampaign(formData: CampaignInsert) {
 }
 
 export async function updateCampaign(id: string, updates: CampaignUpdate) {
+  await requireOwner();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("campaigns")
@@ -70,6 +75,7 @@ export async function updateCampaign(id: string, updates: CampaignUpdate) {
 }
 
 export async function deleteCampaign(id: string) {
+  await requireOwner();
   const supabase = await createClient();
   const { error } = await supabase.from("campaigns").delete().eq("id", id);
   if (error) throw new Error(error.message);
@@ -84,6 +90,7 @@ export async function addCampaignStep(
   delayDays: number,
   sendCondition: "always" | "not_replied" | "not_opened" | "opened"
 ) {
+  await requireOwner();
   const supabase = await createClient();
 
   const { data: existing } = await supabase
@@ -113,6 +120,7 @@ export async function addCampaignStep(
 }
 
 export async function updateCampaignStep(id: string, updates: CampaignStepUpdate) {
+  await requireOwner();
   const supabase = await createClient();
   const { data: step } = await supabase
     .from("campaign_steps")
@@ -133,6 +141,7 @@ export async function updateCampaignStep(id: string, updates: CampaignStepUpdate
 }
 
 export async function deleteCampaignStep(id: string) {
+  await requireOwner();
   const supabase = await createClient();
   const { data: step } = await supabase
     .from("campaign_steps")
@@ -165,6 +174,7 @@ export async function deleteCampaignStep(id: string) {
 }
 
 export async function moveCampaignStep(stepId: string, direction: "up" | "down") {
+  await requireOwner();
   const supabase = await createClient();
 
   const { data: step } = await supabase
@@ -197,6 +207,7 @@ export async function moveCampaignStep(stepId: string, direction: "up" | "down")
 // ── A/B stats ────────────────────────────────────────────────────────────────
 
 export async function getCampaignAbStats(campaignId: string): Promise<CampaignAbStats> {
+  await requireOwner();
   const supabase = await createClient();
 
   const { data: abSteps } = await supabase
@@ -251,6 +262,7 @@ export async function getCampaignAbStats(campaignId: string): Promise<CampaignAb
 // ── Enrollments ───────────────────────────────────────────────────────────────
 
 export async function getEnrollments(campaignId: string) {
+  await requireOwner();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("campaign_leads")
@@ -262,6 +274,7 @@ export async function getEnrollments(campaignId: string) {
 }
 
 export async function getLeadsNotInCampaign(campaignId: string) {
+  await requireOwner();
   const supabase = await createClient();
 
   const { data: enrolled } = await supabase
@@ -285,6 +298,7 @@ export async function getLeadsNotInCampaign(campaignId: string) {
 }
 
 export async function bulkEnrollLeads(campaignId: string, leadIds: string[]) {
+  await requireOwner();
   if (leadIds.length === 0) return { enrolled: 0, skipped: 0 };
 
   const supabase = await createClient();
@@ -328,6 +342,7 @@ export async function bulkEnrollLeads(campaignId: string, leadIds: string[]) {
 }
 
 export async function bulkUnenrollLeads(campaignId: string, ids: string[]) {
+  await requireOwner();
   if (ids.length === 0) return;
   const supabase = await createClient();
   const { error } = await supabase.from("campaign_leads").delete().in("id", ids);
@@ -336,6 +351,7 @@ export async function bulkUnenrollLeads(campaignId: string, ids: string[]) {
 }
 
 export async function unenrollLead(campaignLeadId: string) {
+  await requireOwner();
   const supabase = await createClient();
   const { data: entry } = await supabase
     .from("campaign_leads")
@@ -352,6 +368,7 @@ export async function updateEnrollmentStatus(
   id: string,
   status: "active" | "completed" | "paused" | "replied" | "unsubscribed"
 ) {
+  await requireOwner();
   const supabase = await createClient();
   const { data: entry } = await supabase
     .from("campaign_leads")

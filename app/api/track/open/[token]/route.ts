@@ -1,6 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { decodeTrackingToken } from "@/lib/email/tracking";
-import type { Database } from "@/lib/supabase/types";
 
 const PIXEL = Buffer.from(
   "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
@@ -15,10 +14,7 @@ export async function GET(
   const data = decodeTrackingToken(token);
 
   if (data) {
-    const supabase = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createAdminClient();
 
     // Dedup: only record the first open per lead per step. Without this,
     // every repeat pixel fetch (mail client prefetching, re-opening the

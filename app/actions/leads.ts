@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireOwner } from "@/lib/auth/owner";
 import { revalidatePath } from "next/cache";
 import type { Database } from "@/lib/supabase/types";
 import type { LeadWithTags, CampaignEnrollment, UnsubscribedLeadRow } from "@/types";
@@ -9,6 +10,7 @@ type LeadInsert = Database["public"]["Tables"]["leads"]["Insert"];
 type LeadUpdate = Database["public"]["Tables"]["leads"]["Update"];
 
 export async function getLeads(): Promise<LeadWithTags[]> {
+  await requireOwner();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("leads")
@@ -19,6 +21,7 @@ export async function getLeads(): Promise<LeadWithTags[]> {
 }
 
 export async function getLead(id: string): Promise<LeadWithTags> {
+  await requireOwner();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("leads")
@@ -30,6 +33,7 @@ export async function getLead(id: string): Promise<LeadWithTags> {
 }
 
 export async function getUnsubscribedLeads(): Promise<UnsubscribedLeadRow[]> {
+  await requireOwner();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("campaign_leads")
@@ -51,6 +55,7 @@ export async function getUnsubscribedLeads(): Promise<UnsubscribedLeadRow[]> {
 }
 
 export async function getLeadEnrollments(leadId: string): Promise<CampaignEnrollment[]> {
+  await requireOwner();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("campaign_leads")
@@ -62,6 +67,7 @@ export async function getLeadEnrollments(leadId: string): Promise<CampaignEnroll
 }
 
 export async function createLead(data: LeadInsert) {
+  await requireOwner();
   const supabase = await createClient();
   const { data: lead, error } = await supabase
     .from("leads")
@@ -77,6 +83,7 @@ export async function createLead(data: LeadInsert) {
 }
 
 export async function updateLead(id: string, updates: LeadUpdate) {
+  await requireOwner();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("leads")
@@ -91,6 +98,7 @@ export async function updateLead(id: string, updates: LeadUpdate) {
 }
 
 export async function deleteLead(id: string) {
+  await requireOwner();
   const supabase = await createClient();
   const { error } = await supabase.from("leads").delete().eq("id", id);
   if (error) throw new Error(error.message);
@@ -98,6 +106,7 @@ export async function deleteLead(id: string) {
 }
 
 export async function clearAllLeads() {
+  await requireOwner();
   const supabase = await createClient();
   const { error } = await supabase.from("leads").delete().neq("id", "00000000-0000-0000-0000-000000000000");
   if (error) throw new Error(error.message);
@@ -109,6 +118,7 @@ export async function clearAllLeads() {
 export async function bulkImportLeads(
   leads: LeadInsert[]
 ): Promise<{ imported: number; skipped: number; errors: string[] }> {
+  await requireOwner();
   const supabase = await createClient();
 
   const emails = leads.map((l) => l.email).filter(Boolean);
@@ -148,6 +158,7 @@ export async function bulkImportLeads(
 }
 
 export async function addTagToLead(leadId: string, tagId: string) {
+  await requireOwner();
   const supabase = await createClient();
   const { error } = await supabase
     .from("lead_tags")
@@ -159,6 +170,7 @@ export async function addTagToLead(leadId: string, tagId: string) {
 }
 
 export async function removeTagFromLead(leadId: string, tagId: string) {
+  await requireOwner();
   const supabase = await createClient();
   const { error } = await supabase
     .from("lead_tags")
@@ -173,6 +185,7 @@ export async function removeTagFromLead(leadId: string, tagId: string) {
 type PipelineStage = "new" | "contacted" | "replied" | "call_booked" | "introduced" | "closed_won" | "closed_lost";
 
 export async function updateLeadPipelineStage(leadId: string, stage: string) {
+  await requireOwner();
   const supabase = await createClient();
   const { error } = await supabase
     .from("pipeline_entries")

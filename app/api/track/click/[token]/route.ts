@@ -1,6 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { decodeTrackingToken } from "@/lib/email/tracking";
-import type { Database } from "@/lib/supabase/types";
 
 export async function GET(
   _req: Request,
@@ -13,10 +12,7 @@ export async function GET(
     return new Response("Invalid link", { status: 400 });
   }
 
-  const supabase = createClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createAdminClient();
   await supabase.from("email_events").insert({
     campaign_lead_id: data.cl,
     lead_id: data.l,

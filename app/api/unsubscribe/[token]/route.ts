@@ -1,6 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { decodeTrackingToken } from "@/lib/email/tracking";
-import type { Database } from "@/lib/supabase/types";
 
 const CONFIRM_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -106,10 +105,7 @@ export async function POST(
     });
   }
 
-  const supabase = createClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createAdminClient();
 
   await supabase
     .from("campaign_leads")

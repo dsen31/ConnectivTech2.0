@@ -1,9 +1,11 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireOwner } from "@/lib/auth/owner";
 import { revalidatePath } from "next/cache";
 
 export async function getTags() {
+  await requireOwner();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("tags")
@@ -14,6 +16,7 @@ export async function getTags() {
 }
 
 export async function createTag(name: string, color: string) {
+  await requireOwner();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("tags")
@@ -26,6 +29,7 @@ export async function createTag(name: string, color: string) {
 }
 
 export async function updateTag(id: string, name: string, color: string) {
+  await requireOwner();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("tags")
@@ -39,6 +43,7 @@ export async function updateTag(id: string, name: string, color: string) {
 }
 
 export async function deleteTag(id: string) {
+  await requireOwner();
   const supabase = await createClient();
   const { error } = await supabase.from("tags").delete().eq("id", id);
   if (error) throw new Error(error.message);

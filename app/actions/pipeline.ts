@@ -1,9 +1,11 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireOwner } from "@/lib/auth/owner";
 import type { PipelineEntryWithLead } from "@/types";
 
 export async function getPipelineLeads(): Promise<PipelineEntryWithLead[]> {
+  await requireOwner();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("pipeline_entries")

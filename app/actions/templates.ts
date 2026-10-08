@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireOwner } from "@/lib/auth/owner";
 import { revalidatePath } from "next/cache";
 import type { Database } from "@/lib/supabase/types";
 
@@ -8,6 +9,7 @@ type TemplateInsert = Database["public"]["Tables"]["email_templates"]["Insert"];
 type TemplateUpdate = Database["public"]["Tables"]["email_templates"]["Update"];
 
 export async function getTemplates() {
+  await requireOwner();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("email_templates")
@@ -19,6 +21,7 @@ export async function getTemplates() {
 }
 
 export async function getTemplate(id: string) {
+  await requireOwner();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("email_templates")
@@ -30,6 +33,7 @@ export async function getTemplate(id: string) {
 }
 
 export async function createTemplate(data: TemplateInsert) {
+  await requireOwner();
   const supabase = await createClient();
   const { data: template, error } = await supabase
     .from("email_templates")
@@ -42,6 +46,7 @@ export async function createTemplate(data: TemplateInsert) {
 }
 
 export async function updateTemplate(id: string, updates: TemplateUpdate) {
+  await requireOwner();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("email_templates")
@@ -56,6 +61,7 @@ export async function updateTemplate(id: string, updates: TemplateUpdate) {
 }
 
 export async function deleteTemplate(id: string) {
+  await requireOwner();
   const supabase = await createClient();
   const { error } = await supabase.from("email_templates").delete().eq("id", id);
   if (error) throw new Error(error.message);

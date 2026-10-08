@@ -16,6 +16,17 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Production access control
+
+The sales workspace is owner-only. Before deploying the access-control migration:
+
+1. Create the owner's email/password account in Supabase Authentication.
+2. In Vercel, set `APP_OWNER_EMAILS` to that email address (comma-separate multiple owners) and set `SUPABASE_SERVICE_ROLE_KEY` to the project's service-role key. Do not expose either value with a `NEXT_PUBLIC_` prefix.
+3. Run `supabase/migrations/007_owner_access_control.sql` in the Supabase SQL Editor. Replace `YOUR_OWNER_EMAIL` in the final commented statement and run that statement once to grant the account database access.
+4. Deploy the application. The owner signs in at `/login`.
+
+The tracking and unsubscribe endpoints remain public so existing emails keep working. They require `SUPABASE_SERVICE_ROLE_KEY` after Row Level Security is enabled.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

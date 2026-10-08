@@ -1,10 +1,12 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireOwner } from "@/lib/auth/owner";
 import { revalidatePath } from "next/cache";
 import { DEFAULT_SIGNATURE } from "@/lib/email/defaults";
 
 export async function getEmailSignature(): Promise<string> {
+  await requireOwner();
   const supabase = await createClient();
   const { data } = await supabase
     .from("settings")
@@ -15,6 +17,7 @@ export async function getEmailSignature(): Promise<string> {
 }
 
 export async function updateEmailSignature(value: string) {
+  await requireOwner();
   const supabase = await createClient();
   const { error } = await supabase
     .from("settings")
@@ -24,6 +27,7 @@ export async function updateEmailSignature(value: string) {
 }
 
 export async function getDailySendLimit(): Promise<number> {
+  await requireOwner();
   const supabase = await createClient();
   const { data } = await supabase
     .from("settings")
@@ -34,6 +38,7 @@ export async function getDailySendLimit(): Promise<number> {
 }
 
 export async function updateDailySendLimit(value: number) {
+  await requireOwner();
   const supabase = await createClient();
   const { error } = await supabase
     .from("settings")

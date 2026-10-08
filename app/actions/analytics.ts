@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireOwner } from "@/lib/auth/owner";
 
 export type ReplyBreakdown = {
   interested: number;
@@ -66,6 +67,7 @@ export async function getAnalyticsData(): Promise<{
   totals: Pick<CampaignMetrics, "sent" | "opened" | "replied" | "clicked" | "unsubscribed">;
   replyBreakdown: ReplyBreakdown;
 }> {
+  await requireOwner();
   const supabase = await createClient();
 
   const { data } = await supabase

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireOwner } from "@/lib/auth/owner";
 import type { PipelineStage } from "@/types";
 import { PIPELINE_STAGES } from "@/types";
 
@@ -21,6 +22,7 @@ export type DashboardLead = {
 };
 
 export async function getDashboardData() {
+  await requireOwner();
   const supabase = await createClient();
 
   const [
