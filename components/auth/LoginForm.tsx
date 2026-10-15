@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 export function LoginForm() {
@@ -33,6 +34,7 @@ export function LoginForm() {
       <label className="block text-sm font-medium">Password
         <input required type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2" />
       </label>
+      <Link href="/forgot-password" className="block text-sm text-primary underline underline-offset-4">Forgot password?</Link>
       {error && <p className="text-sm text-destructive">{error}</p>}
       <button type="submit" disabled={pending} className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50">
         {pending ? "Signing in…" : "Sign in"}
