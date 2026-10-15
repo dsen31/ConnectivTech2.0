@@ -27,6 +27,12 @@ The sales workspace is owner-only. Before deploying the access-control migration
 
 The tracking and unsubscribe endpoints remain public so existing emails keep working. They require `SUPABASE_SERVICE_ROLE_KEY` after Row Level Security is enabled.
 
+## Password recovery
+
+The login page links to `/forgot-password`, which sends a Supabase recovery email. Before deploying, add `https://app.actoradvisory.com/auth/recovery` to **Supabase Authentication → URL Configuration → Redirect URLs**, and set the Site URL to `https://app.actoradvisory.com`. Add the equivalent callback URL for any development or preview environment you test.
+
+Keep the Supabase Reset Password email template's link set to `{{ .ConfirmationURL }}` (the default). The callback exchanges the one-time PKCE code for a session, then opens `/reset-password`. Request and open the email link in the same browser; a missing verifier, expired link, or reused code shows a new-link prompt. The reset page requires an authenticated session, validates password confirmation, and signs out the local recovery session after a successful update. Supabase enforces its configured password policy and recovery email rate limits. Workspace owner authorization is unchanged.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
