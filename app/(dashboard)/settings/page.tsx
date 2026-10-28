@@ -17,7 +17,7 @@ export default async function SettingsPage() {
       </div>
 
       <div className="rounded-lg border p-5">
-        <SignatureForm initialSignature={signature} initialDailyLimit={dailyLimit} />
+        <a className="block underline mb-4" href="/outreach">Open outreach safety and approval dashboard</a><SignatureForm initialSignature={signature} initialDailyLimit={dailyLimit} />
       </div>
     </div>
   );

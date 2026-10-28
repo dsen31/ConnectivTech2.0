@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition, useCallback } from "react";
+import { useState, useTransition, useCallback } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -185,10 +185,12 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
   const [dragOver, setDragOver] = useState<PipelineStage | null>(null);
   const [, startTransition] = useTransition();
 
-  // Sync when server revalidates
-  useEffect(() => {
+  // Adjust optimistic state when a new server snapshot arrives.
+  const [previousColumns, setPreviousColumns] = useState(initialColumns);
+  if (previousColumns !== initialColumns) {
+    setPreviousColumns(initialColumns);
     setColumns(initialColumns);
-  }, [initialColumns]);
+  }
 
   const handleDragStart = useCallback(
     (e: React.DragEvent, entryId: string, leadId: string, stage: PipelineStage) => {

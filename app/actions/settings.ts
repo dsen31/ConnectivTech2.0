@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner } from "@/lib/auth/owner";
 import { revalidatePath } from "next/cache";
+import { checked, outreachDb } from "@/lib/outreach/db";
 import { DEFAULT_SIGNATURE } from "@/lib/email/defaults";
 
 export async function getEmailSignature(): Promise<string> {
@@ -28,21 +29,13 @@ export async function updateEmailSignature(value: string) {
 
 export async function getDailySendLimit(): Promise<number> {
   await requireOwner();
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("settings")
-    .select("value")
-    .eq("key", "daily_send_limit")
-    .single();
-  return parseInt(data?.value ?? "30", 10);
+  const result = await outreachDb().from('outreach_control').select('daily_cap').eq('id', true).single();
+  return checked(result).daily_cap;
 }
-
 export async function updateDailySendLimit(value: number) {
   await requireOwner();
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("settings")
-    .upsert({ key: "daily_send_limit", value: String(value) }, { onConflict: "key" });
-  if (error) throw new Error(error.message);
-  revalidatePath("/settings");
+  if (!Number.isInteger(value) || value < 1 || value > 30) throw new Error('Daily cap must be between 1 and 30');
+  checked(await outreachDb().from('outreach_control').update({ daily_cap: value }).eq('id', true));
+  revalidatePath('/settings');
+  revalidatePath('/outreach');
 }

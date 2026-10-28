@@ -176,19 +176,9 @@ export function CampaignDetailView({
     startSend(async () => {
       try {
         const result = await sendCampaignStep(campaign.id);
-        if (result.weekendBlocked) {
-          toast.warning("No emails sent on weekends — try again Monday");
-        } else if (result.limitReached && result.sent === 0) {
-          toast.warning("Daily send limit already reached — no emails sent");
-        } else if (result.limitReached) {
-          toast.warning(`${result.sent} sent — daily limit reached`);
-        } else if (result.errors > 0) {
-          toast.error(`${result.sent} sent, ${result.errors} failed`);
-        } else {
-          toast.success(`${result.sent} email${result.sent !== 1 ? "s" : ""} sent${result.skipped > 0 ? `, ${result.skipped} skipped` : ""}`);
-        }
+        toast.success(`${result.queued} prepared for review. Open Outreach to approve.`);
       } catch {
-        toast.error("Failed to send emails");
+        toast.error("Failed to prepare messages");
       }
     });
   }
@@ -425,7 +415,7 @@ export function CampaignDetailView({
                 onClick={handleSend}
               >
                 <Send className="h-3.5 w-3.5 mr-1.5" />
-                {sendPending ? "Sending…" : `Send Next Step${activeCount > 0 ? ` (${activeCount})` : ""}`}
+                {sendPending ? "Preparing…" : `Prepare for review${activeCount > 0 ? ` (${activeCount})` : ""}`}
               </Button>
             </div>
           )}
